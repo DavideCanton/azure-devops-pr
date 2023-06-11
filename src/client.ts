@@ -1,5 +1,6 @@
 import { GitPullRequest, GitPullRequestCommentThread } from "azure-devops-node-api/interfaces/GitInterfaces";
 import * as azdev from "azure-devops-node-api";
+import * as vscode from "vscode";
 import { IRequestHandler } from "azure-devops-node-api/interfaces/common/VsoBaseInterfaces";
 import { IGitApi } from "azure-devops-node-api/GitApi";
 import { WorkspaceConfiguration, workspace } from "vscode";
@@ -77,7 +78,10 @@ class RealClient implements AzureClient
     {
         const s = (v as any)[n];
         if(!s)
+        {
+            vscode.window.showErrorMessage(`Missing property ${EXT_ID}."${n}" in configuration.`);
             throw Error(`Missing ${n}`);
+        }
         return s;
     }
 }
