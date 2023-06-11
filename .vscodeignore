@@ -1,6 +1,7 @@
 .vscode/**
 .vscode-test/**
 src/**
+out/mocks/**
 .gitignore
 .yarnrc
 **/tsconfig.json

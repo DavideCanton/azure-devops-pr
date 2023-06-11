@@ -12,19 +12,19 @@ export interface AzureClient
     loadThreads(pullRequestId: number): Promise<GitPullRequestCommentThread[]>;
 }
 
-class MockClient implements AzureClient
-{
-    loadPullRequest(branchName: string): Promise<GitPullRequest | null>
-    {
-        return import("./mocks/pr.json") as any as Promise<GitPullRequest>;
-    }
-    loadThreads(): Promise<GitPullRequestCommentThread[]>
-    {
-        return import("./mocks/threads.json") as any as Promise<
-            GitPullRequestCommentThread[]
-        >;
-    }
-}
+// class MockClient implements AzureClient
+// {
+//     loadPullRequest(branchName: string): Promise<GitPullRequest | null>
+//     {
+//         return import("./mocks/pr.json") as any as Promise<GitPullRequest>;
+//     }
+//     loadThreads(): Promise<GitPullRequestCommentThread[]>
+//     {
+//         return import("./mocks/threads.json") as any as Promise<
+//             GitPullRequestCommentThread[]
+//         >;
+//     }
+// }
 
 class RealClient implements AzureClient
 {
