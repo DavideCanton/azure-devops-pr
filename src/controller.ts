@@ -1,10 +1,10 @@
+import * as gi from "azure-devops-node-api/interfaces/GitInterfaces";
 import * as vsc from "vscode";
 import { AzureClient, getClient } from "./client";
-import { getCurrentBranch } from "./git-utils";
-import * as gi from "azure-devops-node-api/interfaces/GitInterfaces";
-import path = require("path");
-import { log, logException } from "./logs";
 import { COMMENT_CONTROLLER_ID, OPEN_CMD, REFRESH_CMD } from "./constants";
+import { GitUtils } from "./git-utils";
+import { log, logException } from "./logs";
+import path = require("path");
 
 export class ExtensionController
 {
@@ -14,6 +14,7 @@ export class ExtensionController
     private pullRequest: gi.GitPullRequest | null;
     private commentController: vsc.CommentController;
     private allComments: vsc.CommentThread[];
+    private gitUtils: GitUtils = new GitUtils();
 
     activate(context: vsc.ExtensionContext)
     {
@@ -55,7 +56,13 @@ export class ExtensionController
     {
         try
         {
-            const currentBranch = getCurrentBranch();
+            const currentBranch = this.gitUtils.getCurrentBranch();
+            if(!currentBranch)
+            {
+                vsc.window.showErrorMessage("Cannot detect current branch!");
+                return;
+            }
+
             log(`Detected branch ${currentBranch}`);
 
             // redownload pull request if branch has changed or no pr was downloaded
@@ -66,7 +73,6 @@ export class ExtensionController
 
                 if(this.pullRequest)
                     log(`Downloaded PR ${this.pullRequest.pullRequestId!}`);
-
                 else
                     log('No PR found');
             }
@@ -82,7 +88,8 @@ export class ExtensionController
 
             this.allComments = threads
                 .filter(t => this.validThread(t))
-                .map(t => this.createVscodeThread(t));
+                .map(t => this.createVscodeThread(t))
+                .filter(c => !!c) as vsc.CommentThread[];
 
             this.statusBarItem.text = `PR: !${prId} (Threads: ${threads.length})`;
             this.statusBarItem.show();
@@ -112,9 +119,31 @@ export class ExtensionController
         }
     }
 
-    private createVscodeThread(t: gi.GitPullRequestCommentThread): vsc.CommentThread
+    private createVscodeThread(t: gi.GitPullRequestCommentThread): vsc.CommentThread | null
     {
         const context = t.threadContext!;
+
+        const comments = t.comments?.map((c) =>
+        {
+            return {
+                mode: vsc.CommentMode.Preview,
+                body: c.content!,
+                author: {
+                    name: c.author?.displayName ?? "Author",
+                    // iconPath: c.author?._links.avatar.href
+                },
+                reactions: c.usersLiked
+                    ? [
+                        {
+                            count: c.usersLiked.length,
+                            label: "Like",
+                        },
+                    ]
+                    : undefined,
+            } as vsc.Comment;
+        }) ?? [];
+
+        // TODO filter out threads on files outside the current folder?
         const ct = this.commentController.createCommentThread(
             this.toUri(context.filePath!),
             // TODO for now let's handle just threads on the right file
@@ -122,25 +151,7 @@ export class ExtensionController
                 this.toPosition(context.rightFileStart!),
                 this.toPosition(context.rightFileEnd!)
             ),
-            t.comments?.map((c) =>
-            {
-                return {
-                    mode: vsc.CommentMode.Preview,
-                    body: c.content!,
-                    author: {
-                        name: c.author?.displayName ?? "Author",
-                        // iconPath: c.author?._links.avatar.href
-                    },
-                    reactions: c.usersLiked
-                        ? [
-                            {
-                                count: c.usersLiked.length,
-                                label: "Like",
-                            },
-                        ]
-                        : undefined,
-                } as vsc.Comment;
-            }) ?? []
+            comments
         );
         ct.canReply = false;
         ct.label = `[${gi.CommentThreadStatus[t.status!]}] Thread ${t.id!}`;
@@ -171,7 +182,7 @@ export class ExtensionController
     {
         return vsc.Uri.file(
             path.join(
-                vsc.workspace.workspaceFolders![0].uri.fsPath,
+                this.gitUtils.getRepoRoot()!,
                 filePath.replace(/^\//, "")
             )
         );

@@ -37,10 +37,10 @@ class RealClient implements AzureClient
 
     constructor(conf: Settings)
     {
-        this.project = conf["project-name"];
-        this.repository = conf["repository-name"];
-        this.orgUrl = DEV_AZURE_URI + conf["organization-name"];
-        this.authHandler = azdev.getPersonalAccessTokenHandler(conf.token);
+        this.project = this.require(conf, "project-name");
+        this.repository = this.require(conf, "repository-name");
+        this.orgUrl = DEV_AZURE_URI + this.require(conf, "organization-name");
+        this.authHandler = azdev.getPersonalAccessTokenHandler(this.require(conf, "token"));
         this.connection = new azdev.WebApi(this.orgUrl, this.authHandler);
     }
 
@@ -71,6 +71,14 @@ class RealClient implements AzureClient
         {
             this.gitClient = await this.connection.getGitApi();
         }
+    }
+
+    private require(v: object, n: string): string
+    {
+        const s = (v as any)[n];
+        if(!s)
+            throw Error(`Missing ${n}`);
+        return s;
     }
 }
 
