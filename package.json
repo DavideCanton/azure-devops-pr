@@ -1,0 +1,68 @@
+{
+    "name": "azure-devops-pr",
+    "displayName": "azure-devops-pr",
+    "description": "",
+    "version": "0.0.1",
+    "license": "MIT",
+    "engines": {
+        "vscode": "^1.79.0"
+    },
+    "categories": [
+        "Other"
+    ],
+    "activationEvents": [],
+    "main": "./out/extension.js",
+    "contributes": {
+        "commands": [
+            {
+                "command": "azure-devops-pr.refresh",
+                "title": "Azure DevOps PR: Refresh"
+            }
+        ],
+        "configuration": {
+            "title": "Azure DevOps Pull Requests",
+            "properties": {
+                "azure-devops-pr.token": {
+                    "type": "string",
+                    "description": "Token"
+                },
+                "azure-devops-pr.organization-name": {
+                    "type": "string",
+                    "description": "Organization name"
+                },
+                "azure-devops-pr.project-name": {
+                    "type": "string",
+                    "description": "Project name"
+                },
+                "azure-devops-pr.repository-name": {
+                    "type": "string",
+                    "description": "Repository name"
+                }
+            }
+        }
+    },
+    "scripts": {
+        "vscode:prepublish": "yarn run compile",
+        "compile": "tsc -p ./",
+        "watch": "tsc -watch -p ./",
+        "pretest": "yarn run compile && yarn run lint",
+        "lint": "eslint src --ext ts",
+        "test": "node ./out/test/runTest.js"
+    },
+    "dependencies": {
+        "azure-devops-node-api": "^12.0.0"
+    },
+    "devDependencies": {
+        "@types/vscode": "^1.79.0",
+        "@types/glob": "^8.1.0",
+        "@types/mocha": "^10.0.1",
+        "@types/node": "20.2.5",
+        "@typescript-eslint/eslint-plugin": "^5.59.8",
+        "@typescript-eslint/parser": "^5.59.8",
+        "@vscode/test-electron": "^2.3.2",
+        "eslint": "^8.41.0",
+        "glob": "^8.1.0",
+        "mocha": "^10.2.0",
+        "typescript": "^5.1.3"
+    }
+}
