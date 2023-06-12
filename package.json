@@ -21,19 +21,19 @@
         "commands": [
             {
                 "command": "azure-devops-pr.refresh",
-                "title": "Azure DevOps PR: Refresh"
+                "title": "Azure DevOps PR: Refresh",
+                "when": "scmProvider == git"
             },
             {
-                "command": "azure-devops-pr.saveNote",
+                "command": "azure-devops-pr.replyThread",
                 "title": "Update"
             },
             {
-                "command": "azure-devops-pr.createNote",
+                "command": "azure-devops-pr.createThread",
                 "title": "Comment"
             },
             {
-                
-                "command": "azure-devops-pr.replyNote",
+                "command": "azure-devops-pr.updateComment",
                 "title": "Reply"
             }
         ],
@@ -66,20 +66,20 @@
         "menus": {			
             "comments/commentThread/context": [
 				{
-					"command": "azure-devops-pr.createNote",
+					"command": "azure-devops-pr.createThread",
 					"group": "inline",
 					"when": "commentController == azure-devops-pr-comment && commentThreadIsEmpty"
 				},
                 {
-					"command": "azure-devops-pr.replyNote",
+					"command": "azure-devops-pr.replyThread",
 					"group": "inline",
 					"when": "commentController == azure-devops-pr-comment && !commentThreadIsEmpty"
 				}
             ],
 			"comments/comment/context": [
 				{
-					"command": "azure-devops-pr.saveNote",
-					"group": "inline@1",
+					"command": "azure-devops-pr.updateComment",
+					"group": "inline",
 					"when": "commentController == azure-devops-pr-comment"
 				}
 			]

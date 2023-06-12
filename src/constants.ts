@@ -15,3 +15,6 @@ export const OPEN_FILE_CMD = `${EXT_ID}.open_file`;
 export const OPEN_PR_CMD = `${EXT_ID}.open_pr`;
 
 
+export const REPLY_CMD = `${EXT_ID}.replyThread`;
+export const CREATE_THREAD_CMD = `${EXT_ID}.createThread`;
+export const UPDATE_COMMENT_CMD = `${EXT_ID}.updateComment`;

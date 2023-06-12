@@ -1,7 +1,7 @@
 import * as gi from "azure-devops-node-api/interfaces/GitInterfaces";
 import * as vsc from "vscode";
 import { AzureClient, getClient } from "./client";
-import { COMMENT_CONTROLLER_ID, OPEN_FILE_CMD, OPEN_PR_CMD, REFRESH_CMD } from "./constants";
+import { COMMENT_CONTROLLER_ID, CREATE_THREAD_CMD, OPEN_FILE_CMD, OPEN_PR_CMD, REFRESH_CMD, REPLY_CMD } from "./constants";
 import { GitUtils } from "./git-utils";
 import { log, logException } from "./logs";
 import path = require("path");
@@ -41,9 +41,7 @@ export class ExtensionController
         };
 
         context.subscriptions.push(this.commentController);
-        context.subscriptions.push(
-            vsc.commands.registerCommand(REFRESH_CMD, async () => this.refresh())
-        );
+        context.subscriptions.push(vsc.commands.registerCommand(REFRESH_CMD, async () => this.refresh()));
         context.subscriptions.push(
             vsc.commands.registerCommand(
                 OPEN_FILE_CMD,
@@ -56,8 +54,41 @@ export class ExtensionController
                 async () => this.openPR()
             )
         );
+        context.subscriptions.push(
+            vsc.commands.registerCommand(
+                CREATE_THREAD_CMD,
+                (reply: vsc.CommentReply) =>
+                {
+                    this.createComment(reply);
+                }
+            )
+        );
+        context.subscriptions.push(
+            vsc.commands.registerCommand(
+                REPLY_CMD,
+                (reply: vsc.CommentReply) =>
+                {
+                    this.createComment(reply);
+                }
+            )
+        );
 
         this.refresh();
+    }
+
+    private createComment(reply: vsc.CommentReply)
+    {
+        const thread = reply.thread;
+        thread.comments = [
+            ...thread.comments,
+            {
+                body: reply.text,
+                author: {
+                    name: "foo"
+                },
+                mode: vsc.CommentMode.Preview
+            }
+        ];
     }
 
     deactivate()
