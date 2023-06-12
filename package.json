@@ -22,6 +22,19 @@
             {
                 "command": "azure-devops-pr.refresh",
                 "title": "Azure DevOps PR: Refresh"
+            },
+            {
+                "command": "azure-devops-pr.saveNote",
+                "title": "Update"
+            },
+            {
+                "command": "azure-devops-pr.createNote",
+                "title": "Comment"
+            },
+            {
+                
+                "command": "azure-devops-pr.replyNote",
+                "title": "Reply"
             }
         ],
         "configuration": {
@@ -49,7 +62,28 @@
                     "default": "https://dev.azure.com/"
                 }
             }
-        }
+        },
+        "menus": {			
+            "comments/commentThread/context": [
+				{
+					"command": "azure-devops-pr.createNote",
+					"group": "inline",
+					"when": "commentController == azure-devops-pr-comment && commentThreadIsEmpty"
+				},
+                {
+					"command": "azure-devops-pr.replyNote",
+					"group": "inline",
+					"when": "commentController == azure-devops-pr-comment && !commentThreadIsEmpty"
+				}
+            ],
+			"comments/comment/context": [
+				{
+					"command": "azure-devops-pr.saveNote",
+					"group": "inline@1",
+					"when": "commentController == azure-devops-pr-comment"
+				}
+			]
+		}
     },
     "scripts": {
         "vscode:prepublish": "yarn run compile",

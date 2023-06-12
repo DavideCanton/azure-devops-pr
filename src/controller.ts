@@ -31,9 +31,14 @@ export class ExtensionController
             "Comment Controller"
         );
         // A `CommentingRangeProvider` controls where gutter decorations that allow adding comments are shown
-        // this.commentController.commentingRangeProvider = {
-        //     provideCommentingRanges: () => [],
-        // };
+        this.commentController.commentingRangeProvider = {
+            provideCommentingRanges: (document, token) =>
+            {
+                return [
+                    new vsc.Range(0, 0, document.lineCount, 1)
+                ];
+            }
+        };
 
         context.subscriptions.push(this.commentController);
         context.subscriptions.push(
@@ -51,6 +56,8 @@ export class ExtensionController
                 async () => this.openPR()
             )
         );
+
+        this.refresh();
     }
 
     deactivate()
@@ -146,7 +153,7 @@ export class ExtensionController
         const comments = t.comments?.map((c) =>
         {
             return {
-                mode: vsc.CommentMode.Preview,
+                mode: vsc.CommentMode.Editing,
                 body: c.content!,
                 author: {
                     name: c.author?.displayName ?? "Author",
@@ -173,7 +180,6 @@ export class ExtensionController
             ),
             comments
         );
-        ct.canReply = false;
         ct.label = `[${gi.CommentThreadStatus[t.status!]}] Thread ${t.id!}`;
         return ct;
     }
