@@ -42,6 +42,11 @@
                 "azure-devops-pr.repository-name": {
                     "type": "string",
                     "description": "Repository name"
+                },
+                "azure-devops-pr.azure-url": {
+                    "type": "string",
+                    "description": "Azure URL",
+                    "default": "https://dev.azure.com/"
                 }
             }
         }

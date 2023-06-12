@@ -4,11 +4,10 @@ import * as vscode from "vscode";
 import { IRequestHandler } from "azure-devops-node-api/interfaces/common/VsoBaseInterfaces";
 import { IGitApi } from "azure-devops-node-api/GitApi";
 import { WorkspaceConfiguration, workspace } from "vscode";
-import { DEV_AZURE_URI, EXT_ID } from "./constants";
+import { EXT_ID } from "./constants";
 import { Settings } from "./types";
 
-export interface AzureClient
-{
+export interface AzureClient {
     loadPullRequest(branchName: string): Promise<GitPullRequest | null>;
     loadThreads(pullRequestId: number): Promise<GitPullRequestCommentThread[]>;
 }
@@ -27,8 +26,7 @@ export interface AzureClient
 //     }
 // }
 
-class RealClient implements AzureClient
-{
+class RealClient implements AzureClient {
     orgUrl: string;
     authHandler: IRequestHandler;
     connection: azdev.WebApi;
@@ -36,17 +34,19 @@ class RealClient implements AzureClient
     repository: string;
     project: string;
 
-    constructor(conf: Settings)
-    {
+    constructor(conf: Settings) {
         this.project = this.require(conf, "project-name");
         this.repository = this.require(conf, "repository-name");
-        this.orgUrl = DEV_AZURE_URI + this.require(conf, "organization-name");
+
+        const azureUrl = this.require(conf, "azure-url").replace(/\/$/, "");
+        const orgName = this.require(conf, "organization-name").replace(/^\//, "");
+        this.orgUrl = `${azureUrl}/${orgName}`;
+
         this.authHandler = azdev.getPersonalAccessTokenHandler(this.require(conf, "token"));
         this.connection = new azdev.WebApi(this.orgUrl, this.authHandler);
     }
 
-    async loadPullRequest(branchName: string): Promise<GitPullRequest>
-    {
+    async loadPullRequest(branchName: string): Promise<GitPullRequest> {
         await this.loadClient();
 
         const prs = await this.gitClient!.getPullRequestsByProject(
@@ -55,8 +55,7 @@ class RealClient implements AzureClient
         return prs?.[0] ?? null;
     }
 
-    async loadThreads(pullRequestId: number): Promise<GitPullRequestCommentThread[]>
-    {
+    async loadThreads(pullRequestId: number): Promise<GitPullRequestCommentThread[]> {
         await this.loadClient();
 
         return await this.gitClient!.getThreads(
@@ -66,19 +65,15 @@ class RealClient implements AzureClient
         );
     }
 
-    private async loadClient()
-    {
-        if(!this.gitClient)
-        {
+    private async loadClient() {
+        if (!this.gitClient) {
             this.gitClient = await this.connection.getGitApi();
         }
     }
 
-    private require(v: object, n: string): string
-    {
+    private require(v: object, n: string): string {
         const s = (v as any)[n];
-        if(!s)
-        {
+        if (!s) {
             vscode.window.showErrorMessage(`Missing property ${EXT_ID}."${n}" in configuration.`);
             throw Error(`Missing ${n}`);
         }
@@ -86,8 +81,7 @@ class RealClient implements AzureClient
     }
 }
 
-export function getClient(): AzureClient
-{
+export function getClient(): AzureClient {
     // return new MockClient();
 
     const conf = workspace.getConfiguration(EXT_ID) as WorkspaceConfiguration & Settings;
