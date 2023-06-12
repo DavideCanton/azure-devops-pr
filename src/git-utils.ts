@@ -1,9 +1,15 @@
 import * as vscode from "vscode";
 
+/**
+ * Utility class for retrieving information about the repository.
+ */
 export class GitUtils
 {
     api: any | null = null;
 
+    /**
+     * Returns the name of the current branch, or `null` if it cannot be returned.
+     */
     getCurrentBranch(): string | null
     {
         this.loadExtensionAPI();
@@ -18,6 +24,11 @@ export class GitUtils
         }
     }
 
+    /**
+     * Returns the path of the root of the repository, or `null` if it cannot be returned.
+     * 
+     * Note that it could not be the same as the workspace root.
+     */
     getRepoRoot(): string | null
     {
         this.loadExtensionAPI();
@@ -31,6 +42,9 @@ export class GitUtils
         }
     }
 
+    /**
+     * Ensures that `this.api` is filled.
+     */
     private loadExtensionAPI(): any
     {
         if(!this.api)

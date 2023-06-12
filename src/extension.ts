@@ -1,7 +1,8 @@
 import * as vsc from "vscode";
 import { ExtensionController } from "./controller";
+import { CONFIG } from "./config";
 
-const extensionController = new ExtensionController();
+const extensionController = new ExtensionController(CONFIG);
 
 export function activate(context: vsc.ExtensionContext)
 {
