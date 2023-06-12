@@ -84,6 +84,11 @@ class RealClient implements AzureClient {
 export function getClient(): AzureClient {
     // return new MockClient();
 
-    const conf = workspace.getConfiguration(EXT_ID) as WorkspaceConfiguration & Settings;
+    const conf = getConfiguration();
     return new RealClient(conf);
 }
+
+export function getConfiguration(): Settings {
+    return workspace.getConfiguration(EXT_ID) as WorkspaceConfiguration & Settings;
+}
+
