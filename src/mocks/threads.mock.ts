@@ -1,4 +1,6 @@
-[
+import { GitPullRequestCommentThread } from "azure-devops-node-api/interfaces/GitInterfaces";
+
+let THREADS: GitPullRequestCommentThread[] = [
   {
     "pullRequestThreadContext": {
       "iterationContext": {
@@ -8,8 +10,8 @@
       "changeTrackingId": 1
     },
     "id": 1,
-    "publishedDate": "2023-06-10T13:45:49.353Z",
-    "lastUpdatedDate": "2023-06-10T13:45:49.353Z",
+    "publishedDate": new Date("2023-06-10T13:45:49.353Z"),
+    "lastUpdatedDate": new Date("2023-06-10T13:45:49.353Z"),
     "comments": [
       {
         "id": 1,
@@ -28,9 +30,9 @@
           "descriptor": "msa.MmE0ZDZkM2YtM2FkZC03NzZkLWI5YmQtMDU5ZGNmOTI5NmI5"
         },
         "content": "che bella modifica",
-        "publishedDate": "2023-06-10T13:45:49.353Z",
-        "lastUpdatedDate": "2023-06-10T13:45:49.353Z",
-        "lastContentUpdatedDate": "2023-06-10T13:45:49.353Z",
+        "publishedDate": new Date("2023-06-10T13:45:49.353Z"),
+        "lastUpdatedDate": new Date("2023-06-10T13:45:49.353Z"),
+        "lastContentUpdatedDate": new Date("2023-06-10T13:45:49.353Z"),
         "commentType": 1,
         "usersLiked": [],
         "_links": {
@@ -65,7 +67,6 @@
         "$value": "f04ebfe9-c592-42cb-806e-8115ba9a71e7"
       }
     },
-    "identities": null,
     "isDeleted": false,
     "_links": {
       "self": {
@@ -85,8 +86,8 @@
       "changeTrackingId": 1
     },
     "id": 2,
-    "publishedDate": "2023-06-10T13:45:58.913Z",
-    "lastUpdatedDate": "2023-06-10T13:45:58.913Z",
+    "publishedDate": new Date("2023-06-10T13:45:58.913Z"),
+    "lastUpdatedDate": new Date("2023-06-10T13:45:58.913Z"),
     "comments": [
       {
         "id": 1,
@@ -105,25 +106,25 @@
           "descriptor": "msa.MmE0ZDZkM2YtM2FkZC03NzZkLWI5YmQtMDU5ZGNmOTI5NmI5"
         },
         "content": "magari qua si può aggiungere altro?",
-        "publishedDate": "2023-06-10T13:45:58.913Z",
-        "lastUpdatedDate": "2023-06-10T13:45:58.913Z",
-        "lastContentUpdatedDate": "2023-06-10T13:45:58.913Z",
+        "publishedDate": new Date("2023-06-10T13:45:58.913Z"),
+        "lastUpdatedDate": new Date("2023-06-10T13:45:58.913Z"),
+        "lastContentUpdatedDate": new Date("2023-06-10T13:45:58.913Z"),
         "commentType": 1,
         "usersLiked": [
-            {
-              "displayName": "Davide Canton",
-              "url": "https://spsprodweu5.vssps.visualstudio.com/A5b5c33ea-4569-4b96-a435-b45b7a8a6555/_apis/Identities/9f5b69b0-2c1b-4463-b06e-91ecc648d1c4",
-              "_links": {
-                "avatar": {
-                  "href": "https://dev.azure.com/davidecanton5/_apis/GraphProfile/MemberAvatars/msa.MmE0ZDZkM2YtM2FkZC03NzZkLWI5YmQtMDU5ZGNmOTI5NmI5"
-                }
-              },
-              "id": "9f5b69b0-2c1b-4463-b06e-91ecc648d1c4",
-              "uniqueName": "davide.canton5@gmail.com",
-              "imageUrl": "https://dev.azure.com/davidecanton5/_api/_common/identityImage?id=9f5b69b0-2c1b-4463-b06e-91ecc648d1c4",
-              "descriptor": "msa.MmE0ZDZkM2YtM2FkZC03NzZkLWI5YmQtMDU5ZGNmOTI5NmI5"
-            }
-          ],
+          {
+            "displayName": "Davide Canton",
+            "url": "https://spsprodweu5.vssps.visualstudio.com/A5b5c33ea-4569-4b96-a435-b45b7a8a6555/_apis/Identities/9f5b69b0-2c1b-4463-b06e-91ecc648d1c4",
+            "_links": {
+              "avatar": {
+                "href": "https://dev.azure.com/davidecanton5/_apis/GraphProfile/MemberAvatars/msa.MmE0ZDZkM2YtM2FkZC03NzZkLWI5YmQtMDU5ZGNmOTI5NmI5"
+              }
+            },
+            "id": "9f5b69b0-2c1b-4463-b06e-91ecc648d1c4",
+            "uniqueName": "davide.canton5@gmail.com",
+            "imageUrl": "https://dev.azure.com/davidecanton5/_api/_common/identityImage?id=9f5b69b0-2c1b-4463-b06e-91ecc648d1c4",
+            "descriptor": "msa.MmE0ZDZkM2YtM2FkZC03NzZkLWI5YmQtMDU5ZGNmOTI5NmI5"
+          }
+        ],
         "_links": {
           "self": {
             "href": "https://dev.azure.com/davidecanton5/_apis/git/repositories/0e9d5414-154f-478a-8461-25899db10648/pullRequests/1/threads/2/comments/1"
@@ -156,7 +157,6 @@
         "$value": "b4b6fef1-74a1-405f-9070-7be2646cf8b0"
       }
     },
-    "identities": null,
     "isDeleted": false,
     "_links": {
       "self": {
@@ -168,10 +168,9 @@
     }
   },
   {
-    "pullRequestThreadContext": null,
     "id": 3,
-    "publishedDate": "2023-06-10T13:46:03.513Z",
-    "lastUpdatedDate": "2023-06-10T14:06:16.763Z",
+    "publishedDate": new Date("2023-06-10T13:46:03.513Z"),
+    "lastUpdatedDate": new Date("2023-06-10T14:06:16.763Z"),
     "comments": [
       {
         "id": 1,
@@ -190,9 +189,9 @@
           "descriptor": "msa.MmE0ZDZkM2YtM2FkZC03NzZkLWI5YmQtMDU5ZGNmOTI5NmI5"
         },
         "content": "roba di lusso",
-        "publishedDate": "2023-06-10T13:46:03.513Z",
-        "lastUpdatedDate": "2023-06-10T13:46:03.513Z",
-        "lastContentUpdatedDate": "2023-06-10T13:46:03.513Z",
+        "publishedDate": new Date("2023-06-10T13:46:03.513Z"),
+        "lastUpdatedDate": new Date("2023-06-10T13:46:03.513Z"),
+        "lastContentUpdatedDate": new Date("2023-06-10T13:46:03.513Z"),
         "commentType": 1,
         "usersLiked": [],
         "_links": {
@@ -227,9 +226,9 @@
           "descriptor": "msa.MmE0ZDZkM2YtM2FkZC03NzZkLWI5YmQtMDU5ZGNmOTI5NmI5"
         },
         "content": "extra lusso",
-        "publishedDate": "2023-06-10T14:06:14.667Z",
-        "lastUpdatedDate": "2023-06-10T14:06:14.667Z",
-        "lastContentUpdatedDate": "2023-06-10T14:06:14.667Z",
+        "publishedDate": new Date("2023-06-10T14:06:14.667Z"),
+        "lastUpdatedDate": new Date("2023-06-10T14:06:14.667Z"),
+        "lastContentUpdatedDate": new Date("2023-06-10T14:06:14.667Z"),
         "commentType": 1,
         "usersLiked": [],
         "_links": {
@@ -249,7 +248,6 @@
       }
     ],
     "status": 2,
-    "threadContext": null,
     "properties": {
       "Microsoft.TeamFoundation.Discussion.SupportsMarkdown": {
         "$type": "System.Int32",
@@ -260,7 +258,6 @@
         "$value": "627814ad-7353-4217-a770-0415a15ba442"
       }
     },
-    "identities": null,
     "isDeleted": false,
     "_links": {
       "self": {
@@ -272,10 +269,9 @@
     }
   },
   {
-    "pullRequestThreadContext": null,
     "id": 4,
-    "publishedDate": "2023-06-10T13:46:11.810Z",
-    "lastUpdatedDate": "2023-06-10T13:46:11.810Z",
+    "publishedDate": new Date("2023-06-10T13:46:11.810Z"),
+    "lastUpdatedDate": new Date("2023-06-10T13:46:11.810Z"),
     "comments": [
       {
         "id": 1,
@@ -294,9 +290,9 @@
           "descriptor": "s2s.MDAwMDAwMDItMDAwMC04ODg4LTgwMDAtMDAwMDAwMDAwMDAwQDJjODk1OTA4LTA0ZTAtNDk1Mi04OWZkLTU0YjAwNDZkNjI4OA"
         },
         "content": "Davide Canton joined as a reviewer",
-        "publishedDate": "2023-06-10T13:46:11.810Z",
-        "lastUpdatedDate": "2023-06-10T13:46:11.810Z",
-        "lastContentUpdatedDate": "2023-06-10T13:46:11.810Z",
+        "publishedDate": new Date("2023-06-10T13:46:11.810Z"),
+        "lastUpdatedDate": new Date("2023-06-10T13:46:11.810Z"),
+        "lastContentUpdatedDate": new Date("2023-06-10T13:46:11.810Z"),
         "commentType": 3,
         "usersLiked": [],
         "_links": {
@@ -315,7 +311,6 @@
         }
       }
     ],
-    "threadContext": null,
     "properties": {
       "CodeReviewReviewersUpdatedNumAdded": {
         "$type": "System.Int32",
@@ -380,8 +375,8 @@
       "changeTrackingId": 1
     },
     "id": 5,
-    "publishedDate": "2023-06-10T14:20:44.800Z",
-    "lastUpdatedDate": "2023-06-10T14:20:44.800Z",
+    "publishedDate": new Date("2023-06-10T14:20:44.800Z"),
+    "lastUpdatedDate": new Date("2023-06-10T14:20:44.800Z"),
     "comments": [
       {
         "id": 1,
@@ -400,9 +395,9 @@
           "descriptor": "msa.MmE0ZDZkM2YtM2FkZC03NzZkLWI5YmQtMDU5ZGNmOTI5NmI5"
         },
         "content": "```suggestion\nmaccarons?\n```\n",
-        "publishedDate": "2023-06-10T14:20:44.800Z",
-        "lastUpdatedDate": "2023-06-10T14:20:44.800Z",
-        "lastContentUpdatedDate": "2023-06-10T14:20:44.800Z",
+        "publishedDate": new Date("2023-06-10T14:20:44.800Z"),
+        "lastUpdatedDate": new Date("2023-06-10T14:20:44.800Z"),
+        "lastContentUpdatedDate": new Date("2023-06-10T14:20:44.800Z"),
         "commentType": 1,
         "usersLiked": [],
         "_links": {
@@ -437,7 +432,6 @@
         "$value": "ea2cc301-1252-488f-9bb7-976b4b580db5"
       }
     },
-    "identities": null,
     "isDeleted": false,
     "_links": {
       "self": {
@@ -448,4 +442,5 @@
       }
     }
   }
-]
+];
+export default THREADS;

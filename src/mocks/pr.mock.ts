@@ -1,4 +1,6 @@
-{
+import { GitPullRequest } from "azure-devops-node-api/interfaces/GitInterfaces";
+
+const PR: GitPullRequest = {
   "repository": {
     "id": "0e9d5414-154f-478a-8461-25899db10648",
     "name": "Prova",
@@ -8,7 +10,7 @@
       "name": "Prova",
       "state": "unchanged",
       "visibility": 0,
-      "lastUpdateTime": "0000-12-31T23:10:04.000Z"
+      "lastUpdateTime": new Date("0000-12-31T23:10:04.000Z")
     }
   },
   "pullRequestId": 1,
@@ -27,7 +29,7 @@
     "imageUrl": "https://dev.azure.com/davidecanton5/_api/_common/identityImage?id=9f5b69b0-2c1b-4463-b06e-91ecc648d1c4",
     "descriptor": "msa.MmE0ZDZkM2YtM2FkZC03NzZkLWI5YmQtMDU5ZGNmOTI5NmI5"
   },
-  "creationDate": "2023-06-10T13:45:42.353Z",
+  "creationDate": new Date("2023-06-10T13:45:42.353Z"),
   "title": "commit maccarons",
   "description": "commit maccarons",
   "sourceRefName": "refs/heads/maccarons",
@@ -74,4 +76,5 @@
   ],
   "url": "https://dev.azure.com/davidecanton5/9ca4c4ec-c08b-427f-91fc-00f2c4e121a1/_apis/git/repositories/0e9d5414-154f-478a-8461-25899db10648/pullRequests/1",
   "supportsIterations": true
-}
+};
+export default PR;
