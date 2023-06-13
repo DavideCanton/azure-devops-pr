@@ -54,7 +54,7 @@ export class ExtensionController {
         context.subscriptions.push(
             vsc.commands.registerCommand(
                 CREATE_THREAD_CMD,
-                (reply: vsc.CommentReply) => {
+                async (reply: vsc.CommentReply) => {
                     this.createComment(reply);
                 }
             )
@@ -62,7 +62,7 @@ export class ExtensionController {
         context.subscriptions.push(
             vsc.commands.registerCommand(
                 REPLY_CMD,
-                (reply: vsc.CommentReply) => {
+                async (reply: vsc.CommentReply) => {
                     this.createComment(reply);
                 }
             )
@@ -71,14 +71,15 @@ export class ExtensionController {
         this.refresh();
     }
 
-    private createComment(reply: vsc.CommentReply) {
+    private async createComment(reply: vsc.CommentReply) {
         const thread = reply.thread;
         thread.comments = [
             ...thread.comments,
             {
-                body: reply.text,
+                body: new vsc.MarkdownString(reply.text),
                 author: {
-                    name: "foo"
+                    // TODO handle error
+                    name: await this.gitUtils.getCurrentUsername() ?? "foo"
                 },
                 mode: vsc.CommentMode.Preview
             }
@@ -166,7 +167,7 @@ export class ExtensionController {
         const comments = t.comments?.map((c) => {
             return {
                 mode: vsc.CommentMode.Preview,
-                body: c.content!,
+                body: new vsc.MarkdownString(c.content!),
                 author: {
                     name: c.author?.displayName ?? "Author",
                     // iconPath: c.author?._links.avatar.href
