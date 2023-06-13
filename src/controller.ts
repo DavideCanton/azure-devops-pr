@@ -1,11 +1,11 @@
 import * as gi from "azure-devops-node-api/interfaces/GitInterfaces";
 import * as vsc from "vscode";
 import { AzureClient, getClient } from "./client";
+import { Configuration } from "./config";
 import { COMMENT_CONTROLLER_ID, CREATE_THREAD_CMD, OPEN_FILE_CMD, OPEN_PR_CMD, REFRESH_CMD, REPLY_CMD } from "./constants";
 import { GitUtils } from "./git-utils";
 import { log, logException } from "./logs";
 import path = require("path");
-import { Configuration, getConfiguration } from "./config";
 
 export class ExtensionController
 {
@@ -184,7 +184,7 @@ export class ExtensionController
         const comments = t.comments?.map((c) =>
         {
             return {
-                mode: vsc.CommentMode.Editing,
+                mode: vsc.CommentMode.Preview,
                 body: c.content!,
                 author: {
                     name: c.author?.displayName ?? "Author",

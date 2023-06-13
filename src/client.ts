@@ -1,10 +1,8 @@
-import { GitPullRequest, GitPullRequestCommentThread } from "azure-devops-node-api/interfaces/GitInterfaces";
 import * as azdev from "azure-devops-node-api";
-import * as vscode from "vscode";
-import { IRequestHandler } from "azure-devops-node-api/interfaces/common/VsoBaseInterfaces";
 import { IGitApi } from "azure-devops-node-api/GitApi";
-import { EXT_ID } from "./constants";
-import { CONFIG, Configuration, getConfiguration } from "./config";
+import { GitPullRequest, GitPullRequestCommentThread } from "azure-devops-node-api/interfaces/GitInterfaces";
+import { IRequestHandler } from "azure-devops-node-api/interfaces/common/VsoBaseInterfaces";
+import { CONFIG, Configuration } from "./config";
 
 export interface AzureClient
 {
