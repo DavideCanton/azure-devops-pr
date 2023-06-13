@@ -17,4 +17,5 @@ export const OPEN_PR_CMD = `${EXT_ID}.open_pr`;
 
 export const REPLY_CMD = `${EXT_ID}.replyThread`;
 export const CREATE_THREAD_CMD = `${EXT_ID}.createThread`;
-export const UPDATE_COMMENT_CMD = `${EXT_ID}.updateComment`;
+export const START_EDIT_COMMENT_CMD = `${EXT_ID}.startEditComment`;
+export const FINISH_EDIT_COMMENT_CMD = `${EXT_ID}.finishEditComment`;

@@ -2,13 +2,12 @@ import * as gi from "azure-devops-node-api/interfaces/GitInterfaces";
 import * as vsc from "vscode";
 import { AzureClient, getClient } from "./client";
 import { Configuration } from "./config";
-import { COMMENT_CONTROLLER_ID, CREATE_THREAD_CMD, OPEN_FILE_CMD, OPEN_PR_CMD, REFRESH_CMD, REPLY_CMD } from "./constants";
+import { COMMENT_CONTROLLER_ID, CREATE_THREAD_CMD, FINISH_EDIT_COMMENT_CMD, OPEN_FILE_CMD, OPEN_PR_CMD, REFRESH_CMD, REPLY_CMD, START_EDIT_COMMENT_CMD } from "./constants";
 import { GitUtils } from "./git-utils";
 import { log, logException } from "./logs";
 import path = require("path");
 
-export class ExtensionController
-{
+export class ExtensionController {
     private client: AzureClient;
     private statusBarItem: vsc.StatusBarItem;
     private lastBranch: string | null = null;
@@ -19,8 +18,7 @@ export class ExtensionController
 
     constructor(private config: Configuration) { }
 
-    activate(context: vsc.ExtensionContext)
-    {
+    activate(context: vsc.ExtensionContext) {
         this.client = getClient();
         this.statusBarItem = vsc.window.createStatusBarItem(
             vsc.StatusBarAlignment.Left
@@ -32,8 +30,7 @@ export class ExtensionController
         );
         // A `CommentingRangeProvider` controls where gutter decorations that allow adding comments are shown
         this.commentController.commentingRangeProvider = {
-            provideCommentingRanges: (document, token) =>
-            {
+            provideCommentingRanges: (document, token) => {
                 return [
                     new vsc.Range(0, 0, document.lineCount, 1)
                 ];
@@ -57,8 +54,7 @@ export class ExtensionController
         context.subscriptions.push(
             vsc.commands.registerCommand(
                 CREATE_THREAD_CMD,
-                (reply: vsc.CommentReply) =>
-                {
+                (reply: vsc.CommentReply) => {
                     this.createComment(reply);
                 }
             )
@@ -66,8 +62,7 @@ export class ExtensionController
         context.subscriptions.push(
             vsc.commands.registerCommand(
                 REPLY_CMD,
-                (reply: vsc.CommentReply) =>
-                {
+                (reply: vsc.CommentReply) => {
                     this.createComment(reply);
                 }
             )
@@ -76,8 +71,7 @@ export class ExtensionController
         this.refresh();
     }
 
-    private createComment(reply: vsc.CommentReply)
-    {
+    private createComment(reply: vsc.CommentReply) {
         const thread = reply.thread;
         thread.comments = [
             ...thread.comments,
@@ -91,17 +85,13 @@ export class ExtensionController
         ];
     }
 
-    deactivate()
-    {
+    deactivate() {
     }
 
-    private async refresh()
-    {
-        try
-        {
+    private async refresh() {
+        try {
             const currentBranch = this.gitUtils.getCurrentBranch();
-            if(!currentBranch)
-            {
+            if (!currentBranch) {
                 vsc.window.showErrorMessage("Cannot detect current branch!");
                 return;
             }
@@ -109,19 +99,17 @@ export class ExtensionController
             log(`Detected branch ${currentBranch}`);
 
             // redownload pull request if branch has changed or no pr was downloaded
-            if(currentBranch !== this.lastBranch || !this.pullRequest)
-            {
+            if (currentBranch !== this.lastBranch || !this.pullRequest) {
                 this.lastBranch = currentBranch;
                 this.pullRequest = await this.client.loadPullRequest(this.lastBranch!);
 
-                if(this.pullRequest)
+                if (this.pullRequest)
                     log(`Downloaded PR ${this.pullRequest.pullRequestId!}`);
                 else
                     log('No PR found');
             }
 
-            if(!this.pullRequest)
-            {
+            if (!this.pullRequest) {
                 vsc.window.showInformationMessage("No pull request found for this branch.");
                 return;
             }
@@ -142,47 +130,40 @@ export class ExtensionController
             this.statusBarItem.command = OPEN_PR_CMD;
             this.statusBarItem.show();
         }
-        catch(error)
-        {
+        catch (error) {
             this.clearComments();
             vsc.window.showErrorMessage("Error while downloading comments");
             logException(error as Error);
         }
     }
 
-    private async openFile(filePath: string, start: gi.CommentPosition, end: gi.CommentPosition)
-    {
-        try
-        {
+    private async openFile(filePath: string, start: gi.CommentPosition, end: gi.CommentPosition) {
+        try {
             vsc.window.showTextDocument(this.toUri(filePath), {
                 selection: new vsc.Range(
                     this.toPosition(start),
                     this.toPosition(end)
                 ),
             });
-        } catch(error)
-        {
+        } catch (error) {
             vsc.window.showErrorMessage("Error while displaying comments");
             logException(error as Error);
         }
     }
 
-    private async openPR()
-    {
+    private async openPR() {
         const prId = this.pullRequest?.pullRequestId;
-        if(!prId)
+        if (!prId)
             return;
 
         const uri = vsc.Uri.parse(this.config.buildPullRequestId(prId));
         vsc.env.openExternal(uri);
     }
 
-    private createVscodeThread(t: gi.GitPullRequestCommentThread): vsc.CommentThread | null
-    {
+    private createVscodeThread(t: gi.GitPullRequestCommentThread): vsc.CommentThread | null {
         const context = t.threadContext!;
 
-        const comments = t.comments?.map((c) =>
-        {
+        const comments = t.comments?.map((c) => {
             return {
                 mode: vsc.CommentMode.Preview,
                 body: c.content!,
@@ -215,13 +196,11 @@ export class ExtensionController
         return ct;
     }
 
-    private clearComments()
-    {
+    private clearComments() {
         this.allComments.forEach(c => c.dispose());
     }
 
-    private validThread(t: gi.GitPullRequestCommentThread): boolean
-    {
+    private validThread(t: gi.GitPullRequestCommentThread): boolean {
         return (
             !!t.threadContext &&
             !!t.threadContext.filePath &&
@@ -230,13 +209,11 @@ export class ExtensionController
         );
     }
 
-    private toPosition(cp: gi.CommentPosition): vsc.Position
-    {
+    private toPosition(cp: gi.CommentPosition): vsc.Position {
         return new vsc.Position(cp.line! - 1, cp.offset! - 1);
     }
 
-    private toUri(filePath: string): vsc.Uri
-    {
+    private toUri(filePath: string): vsc.Uri {
         return vsc.Uri.file(
             path.join(
                 this.gitUtils.getRepoRoot()!,
