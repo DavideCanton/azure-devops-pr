@@ -1,33 +1,31 @@
 import * as vscode from "vscode";
+import { API } from "../typings/git";
 
 /**
  * Utility class for retrieving information about the repository.
  */
 export class GitUtils {
-    api: any | null = null;
+    private api: API | null = null;
 
     /**
      * Returns the name of the current branch, or `null` if it cannot be returned.
      */
     getCurrentBranch(): string | null {
-        this.loadExtensionAPI();
-        try {
-            const repository = this.api.repositories[0];
-            const currentBranch = repository.state.HEAD;
-            return currentBranch.name;
-        } catch (e) {
+        const api = this.loadExtensionAPI();
+        if (!api)
             return null;
-        }
+
+        const repository = api.repositories[0];
+        const currentBranch = repository.state.HEAD;
+        return currentBranch?.name ?? null;
     }
 
     async getCurrentUsername(): Promise<string | null> {
-        this.loadExtensionAPI();
-        try {
-            return await this.api.repositories[0].getConfig('user.name');
-        }
-        catch (e) {
+        const api = this.loadExtensionAPI();
+        if (!api)
             return null;
-        }
+
+        return await api.repositories[0].getConfig('user.name');
     }
 
     /**
@@ -36,19 +34,18 @@ export class GitUtils {
      * Note that it could not be the same as the workspace root.
      */
     getRepoRoot(): string | null {
-        this.loadExtensionAPI();
-        try {
-            const repository = this.api.repositories[0];
-            return repository.rootUri.fsPath;
-        } catch (e) {
+        const api = this.loadExtensionAPI();
+        if (!api)
             return null;
-        }
+
+        const repository = api.repositories[0];
+        return repository.rootUri.fsPath;
     }
 
     /**
      * Ensures that `this.api` is filled.
      */
-    private loadExtensionAPI(): any {
+    private loadExtensionAPI(): API | null {
         if (!this.api) {
             const extension = vscode.extensions.getExtension("vscode.git");
 
@@ -59,5 +56,6 @@ export class GitUtils {
             else
                 this.api = extension.exports.getAPI(1);
         }
+        return this.api;
     }
 }
