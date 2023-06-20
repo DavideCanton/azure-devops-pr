@@ -1,6 +1,6 @@
 {
     "name": "azure-devops-pr",
-    "displayName": "azure-devops-pr",
+    "displayName": "Azure DevOps Pull Request",
     "publisher": "davidecanton",
     "repository": {
         "type": "git",

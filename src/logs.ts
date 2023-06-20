@@ -1,6 +1,6 @@
 import * as vsc from "vscode";
 
-const _OUT_CHANNEL = vsc.window.createOutputChannel("azure-devops-pr");
+const _OUT_CHANNEL = vsc.window.createOutputChannel("Azure DevOps PR");
 
 export function log(msg: string)
 {

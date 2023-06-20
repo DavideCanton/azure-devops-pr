@@ -2,10 +2,24 @@ import * as gi from "azure-devops-node-api/interfaces/GitInterfaces";
 import * as vsc from "vscode";
 import { AzureClient, getClient } from "./client";
 import { Configuration } from "./config";
-import { COMMENT_CONTROLLER_ID, CREATE_THREAD_CMD, FINISH_EDIT_COMMENT_CMD, OPEN_FILE_CMD, OPEN_PR_CMD, REFRESH_CMD, REPLY_CMD, START_EDIT_COMMENT_CMD } from "./constants";
+import * as C from "./constants";
 import { GitUtils } from "./git-utils";
 import { log, logException } from "./logs";
 import path = require("path");
+
+class MyComment implements vsc.Comment {
+    constructor(
+        public body: string | vsc.MarkdownString,
+        public mode: vsc.CommentMode,
+        public author: vsc.CommentAuthorInformation,
+        public azureThread: gi.CommentThread,
+        public azureComment?: gi.Comment,
+        public reactions?: vsc.CommentReaction[],
+        public contextValue?: string,
+        public label?: string,
+        public timestamp?: Date,
+    ) { }
+}
 
 export class ExtensionController {
     private client: AzureClient;
@@ -25,7 +39,7 @@ export class ExtensionController {
         );
 
         this.commentController = vsc.comments.createCommentController(
-            COMMENT_CONTROLLER_ID,
+            C.COMMENT_CONTROLLER_ID,
             "Comment Controller"
         );
         // A `CommentingRangeProvider` controls where gutter decorations that allow adding comments are shown
@@ -38,33 +52,30 @@ export class ExtensionController {
         };
 
         context.subscriptions.push(this.commentController);
-        context.subscriptions.push(vsc.commands.registerCommand(REFRESH_CMD, async () => this.refresh()));
+        context.subscriptions.push(vsc.commands.registerCommand(C.REFRESH_CMD, async () => this.refresh()));
         context.subscriptions.push(
             vsc.commands.registerCommand(
-                OPEN_FILE_CMD,
+                C.OPEN_FILE_CMD,
                 async (filePath, start, end) => this.openFile(filePath, start, end)
             )
         );
         context.subscriptions.push(
             vsc.commands.registerCommand(
-                OPEN_PR_CMD,
+                C.OPEN_PR_CMD,
                 async () => this.openPR()
             )
         );
         context.subscriptions.push(
             vsc.commands.registerCommand(
-                CREATE_THREAD_CMD,
-                async (reply: vsc.CommentReply) => {
-                    this.createComment(reply);
-                }
+                C.CREATE_THREAD_CMD,
+                async (reply: vsc.CommentReply) => this.createComment(reply)
+
             )
         );
         context.subscriptions.push(
             vsc.commands.registerCommand(
-                REPLY_CMD,
-                async (reply: vsc.CommentReply) => {
-                    this.createComment(reply);
-                }
+                C.REPLY_CMD,
+                async (reply: vsc.CommentReply) => this.createComment(reply)
             )
         );
 
@@ -73,17 +84,42 @@ export class ExtensionController {
 
     private async createComment(reply: vsc.CommentReply) {
         const thread = reply.thread;
-        thread.comments = [
-            ...thread.comments,
-            {
-                body: new vsc.MarkdownString(reply.text),
-                author: {
-                    // TODO handle error
-                    name: await this.gitUtils.getCurrentUsername() ?? "foo"
-                },
-                mode: vsc.CommentMode.Preview
-            }
-        ];
+        const pullRequestId = this.pullRequest!.pullRequestId!;
+        const name = await this.gitUtils.getCurrentUsername() ?? "Anonymous User";
+
+
+        let comment: MyComment;
+        if (!thread.comments.length) {
+            const azureThread = await this.client.createThread(
+                pullRequestId, reply.text
+            );
+            comment = new MyComment(
+                new vsc.MarkdownString(reply.text),
+                vsc.CommentMode.Preview,
+                { name },
+                azureThread,
+                azureThread.comments![0]
+            );
+        }
+        else {
+            const lastComment = thread.comments[thread.comments.length - 1] as MyComment;
+            const azureThread = lastComment.azureThread!;
+            const createdComment = await this.client.comment(
+                reply.text,
+                pullRequestId,
+                azureThread.id!,
+                lastComment.azureComment!.id!,
+            );
+            comment = new MyComment(
+                new vsc.MarkdownString(reply.text),
+                vsc.CommentMode.Preview,
+                { name },
+                azureThread,
+                createdComment
+            );
+        }
+
+        thread.comments = [...thread.comments, comment];
     }
 
     deactivate() {
@@ -128,7 +164,7 @@ export class ExtensionController {
                 .filter(c => !!c) as vsc.CommentThread[];
 
             this.statusBarItem.text = `$(git-pull-request) PR: #${prId}`;
-            this.statusBarItem.command = OPEN_PR_CMD;
+            this.statusBarItem.command = C.OPEN_PR_CMD;
             this.statusBarItem.show();
         }
         catch (error) {
@@ -165,22 +201,25 @@ export class ExtensionController {
         const context = t.threadContext!;
 
         const comments = t.comments?.map((c) => {
-            return {
-                mode: vsc.CommentMode.Preview,
-                body: new vsc.MarkdownString(c.content!),
-                author: {
+            return new MyComment(
+                new vsc.MarkdownString(c.content!),
+                vsc.CommentMode.Preview,
+                {
                     name: c.author?.displayName ?? "Author",
                     // iconPath: c.author?._links.avatar.href
                 },
-                reactions: c.usersLiked
+                t,
+                c,
+                c.usersLiked
                     ? [
                         {
                             count: c.usersLiked.length,
                             label: "Like",
-                        },
+                            authorHasReacted: false,
+                        } as vsc.CommentReaction,
                     ]
                     : undefined,
-            } as vsc.Comment;
+            );
         }) ?? [];
 
         // TODO filter out threads on files outside the current folder?

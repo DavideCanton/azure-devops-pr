@@ -25,7 +25,12 @@ export class GitUtils {
         if (!api)
             return null;
 
-        return await api.repositories[0].getConfig('user.name');
+        try {
+            return await api.repositories[0].getConfig('user.name');
+        }
+        catch (e) {
+            return null;
+        }
     }
 
     /**
