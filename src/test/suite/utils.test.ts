@@ -1,16 +1,17 @@
-import * as assert from 'assert';
+import { expect } from 'chai';
 import { buildUri } from '../../utils';
+import { parametrize } from '../utils';
 
-suite('Utils Test Suite', () =>
-{
-    for(const slashes of [true, false])
-    {
-        test(`buildUri ${slashes ? 'with' : 'without'} slashes around`, () =>
-        {
-            const first = slashes ? '/a' : "a";
-            const last = slashes ? 'e/' : "e";
-            assert.strictEqual(buildUri(first, "/b/", "/c", "d/", last), 'a/b/c/d/e');
-        });
-    }
-
+suite('Utils Test Suite', () => {
+    parametrize(
+        [true, false],
+        slashes => `buildUri ${slashes ? 'with' : 'without'} slashes around`,
+        slashes => {
+            const first = slashes ? '/a' : 'a';
+            const last = slashes ? 'e/' : 'e';
+            expect(buildUri(first, '/b/', '/c', 'd/', last)).to.equal(
+                'a/b/c/d/e',
+            );
+        },
+    );
 });

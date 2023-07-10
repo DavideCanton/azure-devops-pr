@@ -59,7 +59,7 @@
                 }
             }
         },
-        "menus": {            
+        "menus": {
             "comments/commentThread/context": [
                 {
                     "command": "azure-devops-pr.createThread",
@@ -82,23 +82,30 @@
         "pretest": "yarn run compile && yarn run lint",
         "package": "vsce package",
         "lint": "eslint src --ext ts",
+        "format": "prettier -w src/",
         "test": "node ./out/test/runTest.js"
     },
     "dependencies": {
-        "azure-devops-node-api": "^12.0.0"
+        "azure-devops-node-api": "^12.0.0",
+        "prettier": "^3.0.0"
     },
     "devDependencies": {
+        "@types/chai": "^4.3.5",
         "@types/glob": "^8.1.0",
         "@types/mocha": "^10.0.1",
         "@types/node": "20.2.5",
+        "@types/sinon": "^10.0.15",
         "@types/vscode": "^1.79.0",
         "@typescript-eslint/eslint-plugin": "^5.59.8",
         "@typescript-eslint/parser": "^5.59.8",
         "@vscode/test-electron": "^2.3.2",
         "@vscode/vsce": "^2.19.0",
+        "chai": "^4.3.7",
         "eslint": "^8.41.0",
+        "eslint-config-prettier": "^8.8.0",
         "glob": "^8.1.0",
         "mocha": "^10.2.0",
+        "sinon": "^15.2.0",
         "typescript": "^5.1.3"
     }
 }
