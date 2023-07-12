@@ -77,7 +77,6 @@
     "scripts": {
         "vscode:prepublish": "yarn run compile",
         "compile": "tsc -p ./",
-        "compile:dist": "tsc -p tsconfig.dist.json",
         "watch": "tsc -watch -p ./",
         "pretest": "yarn run compile && yarn run lint",
         "package": "vsce package",
