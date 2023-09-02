@@ -10,8 +10,9 @@ const extensionController = new ExtensionController(
     new GitUtils(),
 );
 
-export function activate(context: vsc.ExtensionContext) {
-    extensionController.activate(context);
+export function activate(context: vsc.ExtensionContext)
+{
+    extensionController.activate(context);    
 }
 
 export function deactivate() {
