@@ -1,6 +1,11 @@
-import { WorkspaceConfiguration, workspace } from 'vscode';
+import {
+    ConfigurationChangeEvent,
+    WorkspaceConfiguration,
+    workspace,
+} from 'vscode';
 import { EXT_ID } from './constants';
 import { buildUri } from './utils';
+import { log } from './logs';
 
 /**
  * Settings object.
@@ -69,11 +74,29 @@ export class Configuration {
     }
 }
 
-/** Returns the configuration. */
-export function getConfiguration(): Configuration {
-    return Configuration.fromSettings(
-        workspace.getConfiguration(EXT_ID) as WorkspaceConfiguration & Settings,
-    );
-}
+export class ConfigurationManager {
+    private _config: Configuration | null = null;
 
-export const CONFIG = getConfiguration();
+    /** Returns the configuration. */
+    get configuration(): Configuration {
+        if (this._config === null) {
+            this._loadConfiguration();
+        }
+        return this._config!;
+    }
+
+    configChanged(e: ConfigurationChangeEvent): void {
+        if (e.affectsConfiguration('azure-devops-pr')) {
+            log('Configuration changed, reloading...');
+            this._loadConfiguration();
+        }
+    }
+
+    private _loadConfiguration() {
+        this._config = Configuration.fromSettings(
+            workspace.getConfiguration(EXT_ID) as WorkspaceConfiguration &
+                Settings,
+        );
+        log('Configuration loaded');
+    }
+}

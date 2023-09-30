@@ -8,7 +8,7 @@ import {
     GitPullRequestCommentThread,
 } from 'azure-devops-node-api/interfaces/GitInterfaces';
 import { IRequestHandler } from 'azure-devops-node-api/interfaces/common/VsoBaseInterfaces';
-import { CONFIG, Configuration } from './config';
+import { Configuration, ConfigurationManager } from './config';
 
 export interface AzureClient {
     loadPullRequest(branchName: string): Promise<GitPullRequest | null>;
@@ -29,15 +29,21 @@ class AzureRealClient implements AzureClient {
     authHandler: IRequestHandler;
     connection: azdev.WebApi;
     gitClient: IGitApi | undefined;
-    configuration: Configuration;
+    configurationManager: ConfigurationManager;
 
-    constructor(conf: Configuration) {
-        this.configuration = conf;
-        this.authHandler = azdev.getPersonalAccessTokenHandler(conf.token);
+    constructor(confManager: ConfigurationManager) {
+        this.configurationManager = confManager;
+        this.authHandler = azdev.getPersonalAccessTokenHandler(
+            confManager.configuration.token,
+        );
         this.connection = new azdev.WebApi(
-            conf.organizationUrl,
+            confManager.configuration.organizationUrl,
             this.authHandler,
         );
+    }
+
+    get configuration(): Configuration {
+        return this.configurationManager.configuration;
     }
 
     async loadPullRequest(branchName: string): Promise<GitPullRequest> {
@@ -156,10 +162,10 @@ class MockClient implements AzureClient {
     }
 }
 
-export function getClient(): AzureClient {
+export function getClient(cm: ConfigurationManager): AzureClient {
     if (MockClient.canLoad) {
         return new MockClient();
     } else {
-        return new AzureRealClient(CONFIG);
+        return new AzureRealClient(cm);
     }
 }

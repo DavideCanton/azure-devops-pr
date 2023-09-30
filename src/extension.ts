@@ -1,18 +1,19 @@
 import * as vsc from 'vscode';
 import { ExtensionController } from './controller';
-import { CONFIG } from './config';
+import { ConfigurationManager } from './config';
 import { getClient } from './client';
 import { GitUtils } from './git-utils';
 
+const configurationManager = new ConfigurationManager();
+
 const extensionController = new ExtensionController(
-    CONFIG,
-    getClient(),
+    configurationManager,
+    getClient(configurationManager),
     new GitUtils(),
 );
 
-export function activate(context: vsc.ExtensionContext)
-{
-    extensionController.activate(context);    
+export function activate(context: vsc.ExtensionContext) {
+    extensionController.activate(context);
 }
 
 export function deactivate() {
