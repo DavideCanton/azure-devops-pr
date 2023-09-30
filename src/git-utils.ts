@@ -8,11 +8,22 @@ export enum Status {
     NotAGitRepo,
 }
 
+export enum Status {
+    Available,
+    Disabled,
+    Unavailable,
+    NotAGitRepo,
+}
+
 /**
  * Utility class for retrieving information about the repository.
  */
 export class GitUtils {
     private api: API | null = null;
+
+    get status(): Status {
+        return this.loadExtensionAPI();
+    }
 
     /**
      * Returns the name of the current branch, or `null` if it cannot be returned.

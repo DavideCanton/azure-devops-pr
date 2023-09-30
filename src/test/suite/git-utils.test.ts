@@ -143,7 +143,10 @@ suite('GitUtils integration tests', () => {
         await client.addConfig('user.name', 'test_user');
         await client.checkoutLocalBranch('branch1');
 
-        await vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(dir));
+        await vscode.commands.executeCommand(
+            'vscode.openFolder',
+            vscode.Uri.file(dir),
+        );
         gitUtils = new GitUtils();
     });
 
