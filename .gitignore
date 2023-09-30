@@ -4,4 +4,4 @@ node_modules
 .vscode-test/
 *.vsix
 *.log
-test_repo/
+test_folders/

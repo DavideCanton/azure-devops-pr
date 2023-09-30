@@ -1,7 +1,12 @@
 import { expect } from 'chai';
 import { GitUtils } from '../../git-utils';
+import which = require('which');
 import * as sinon from 'sinon';
+import * as vscode from 'vscode';
 import { mockVscodeApi } from '../utils';
+import { SimpleGit, simpleGit } from 'simple-git';
+import * as path from 'path';
+import { rimrafSync } from 'rimraf';
 
 suite('GitUtils unit tests', () => {
     const getAPI = sinon.stub();
@@ -123,4 +128,28 @@ suite('GitUtils unit tests', () => {
         expect(getAPI.calledOnceWith(1));
         expect(showWarning.notCalled);
     }
+});
+
+suite('GitUtils integration tests', () => {
+    let client: SimpleGit;
+    let gitUtils: GitUtils;
+
+    suiteSetup(async () => {
+        const dir = path.resolve(__dirname, '../../../test-folders/git-tests');
+
+        rimrafSync(path.join(dir, '.git'));
+        client = simpleGit(dir);
+        await client.init();
+        await client.addConfig('user.name', 'test_user');
+        await client.checkoutLocalBranch('branch1');
+
+        await vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(dir));
+        gitUtils = new GitUtils();
+    });
+
+    test('get current branch', async () => {
+        const resp = await client.branch();
+        expect(resp.current).to.equal('branch1');
+        expect(gitUtils.getCurrentBranch()).to.equal(resp.current);
+    });
 });
