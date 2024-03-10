@@ -2,6 +2,9 @@ import {
     ConfigurationChangeEvent,
     WorkspaceConfiguration,
     workspace,
+    Event,
+    EventEmitter,
+    Disposable,
 } from 'vscode';
 import { EXT_ID } from './constants';
 import { buildUri } from './utils';
@@ -54,49 +57,63 @@ export class Configuration {
 
     static fromSettings(settings: Settings): Configuration {
         return new Configuration(
-            Configuration.require(settings, 'organization-name'),
-            Configuration.require(settings, 'project-name'),
-            Configuration.require(settings, 'repository-name'),
-            Configuration.require(settings, 'azure-origin'),
-            Configuration.require(settings, 'token'),
+            requireKey(settings, 'organization-name'),
+            requireKey(settings, 'project-name'),
+            requireKey(settings, 'repository-name'),
+            requireKey(settings, 'azure-origin'),
+            requireKey(settings, 'token'),
         );
-    }
-
-    private static require(settings: Settings, name: keyof Settings): string {
-        const value = settings[name];
-        if (value) {
-            return value;
-        } else {
-            throw Error(
-                `Missing property ${EXT_ID}."${name}" in configuration.`,
-            );
-        }
     }
 }
 
-export class ConfigurationManager {
-    private _config: Configuration | null = null;
+function requireKey<S extends keyof Settings>(
+    settings: Settings,
+    name: S,
+): Settings[S] {
+    const value = settings[name];
+    if (value) {
+        return value;
+    } else {
+        throw new Error(
+            `Missing property ${EXT_ID}."${name}" in configuration`,
+        );
+    }
+}
 
-    /** Returns the configuration. */
+export class ConfigurationManager implements Disposable {
+    _configuration: Configuration;
+    private _configChanged = new EventEmitter<Configuration>();
+
     get configuration(): Configuration {
-        if (this._config === null) {
-            this._loadConfiguration();
-        }
-        return this._config!;
+        return this._configuration;
     }
 
-    configChanged(e: ConfigurationChangeEvent): void {
+    activate() {
+        this._loadConfiguration();
+    }
+
+    get onConfigChanged(): Event<Configuration> {
+        return this._configChanged.event;
+    }
+
+    emitChangedConfig(e: ConfigurationChangeEvent): void {
         if (e.affectsConfiguration('azure-devops-pr')) {
             log('Configuration changed, reloading...');
             this._loadConfiguration();
+            this._configChanged.fire(this._configuration);
         }
     }
 
+    dispose() {
+        this._configChanged.dispose();
+    }
+
     private _loadConfiguration() {
-        this._config = Configuration.fromSettings(
-            workspace.getConfiguration(EXT_ID) as WorkspaceConfiguration &
-                Settings,
-        );
+        const settings = workspace.getConfiguration(
+            EXT_ID,
+        ) as WorkspaceConfiguration & Settings;
+
+        this._configuration = Configuration.fromSettings(settings);
         log('Configuration loaded');
     }
 }

@@ -1,69 +1,70 @@
-import * as vscode from 'vscode';
-import { API } from '../typings/git';
-
-export enum Status {
-    Available,
-    Disabled,
-    Unavailable,
-    NotAGitRepo,
-}
-
-export enum Status {
-    Available,
-    Disabled,
-    Unavailable,
-    NotAGitRepo,
-}
+import { spawn } from 'child_process';
+import * as vsc from 'vscode';
+import { log } from './logs';
 
 /**
  * Utility class for retrieving information about the repository.
  */
-export class GitUtils {
-    private api: API | null = null;
+export class GitHandler {
+    private _repositoryRoot: string;
 
-    get status(): Status {
-        return this.loadExtensionAPI();
+    public get repositoryRoot(): string {
+        return this._repositoryRoot;
     }
 
-    /**
-     * Returns the name of the current branch, or `null` if it cannot be returned.
-     */
-    getCurrentBranch(): string | null {
-        const repository = this.api!.repositories[0];
-        const currentBranch = repository?.state?.HEAD;
-        return currentBranch?.name ?? null;
+    async load(): Promise<void> {
+        const workspaceFolders = vsc.workspace.workspaceFolders;
+        if (workspaceFolders) {
+            const res = await this._runGitCommand(
+                'rev-parse',
+                ['--show-toplevel'],
+                workspaceFolders[0].uri.fsPath,
+            );
+            this._repositoryRoot = res.trim();
+        }
     }
 
-    async getCurrentUsername(): Promise<string | null> {
+    async getCurrentBranch(): Promise<string | null> {
         try {
-            return await this.api!.repositories[0].getConfig('user.name');
+            return await this._runGitCommand('symbolic-ref', [
+                '--short',
+                'HEAD',
+            ]);
         } catch (e) {
             return null;
         }
     }
 
-    /**
-     * Returns the path of the root of the repository, or `null` if it cannot be returned.
-     *
-     * Note that it could not be the same as the workspace root.
-     */
-    getRepoRoot(): string | null {
-        const repository = this.api!.repositories[0];
-        return repository.rootUri.fsPath;
-    }
+    async _runGitCommand(
+        command: string,
+        args: string[],
+        cwd: string | null = null,
+    ): Promise<string> {
+        log(`Running git command: ${command} ${args.join(' ')}`);
 
-    /**
-     * Ensures that `this.api` is filled.
-     */
-    loadExtensionAPI(): Status {
-        const extension = vscode.extensions.getExtension('vscode.git');
+        const res = spawn('git', [command, ...args], {
+            cwd: cwd ?? this.repositoryRoot,
+        });
 
-        if (!extension) return Status.Unavailable;
-        else if (!extension.isActive) return Status.Disabled;
-        else {
-            this.api = extension.exports.getAPI(1);
-            if (this.getCurrentBranch() === null) return Status.NotAGitRepo;
-            else return Status.Available;
-        }
+        return new Promise((resolve, reject) => {
+            const out: Buffer[] = [];
+            const err: Buffer[] = [];
+
+            res.stdout.on('data', (chunk: Buffer) => {
+                out.push(chunk);
+            });
+
+            res.stderr.on('data', (chunk: Buffer) => {
+                err.push(chunk);
+            });
+
+            res.on('close', () => {
+                if (out.length) {
+                    resolve(Buffer.concat(out).toString('utf-8'));
+                } else {
+                    reject(Buffer.concat(err).toString('utf-8'));
+                }
+            });
+        });
     }
 }

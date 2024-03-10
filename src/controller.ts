@@ -1,11 +1,11 @@
 import * as gi from 'azure-devops-node-api/interfaces/GitInterfaces';
 import * as vsc from 'vscode';
-import { AzureClient, getClient } from './client';
-import { Configuration, ConfigurationManager } from './config';
+import { AzureClient } from './client';
+import { ConfigurationManager } from './config';
 import * as C from './constants';
-import { GitUtils, Status } from './git-utils';
 import { log, logException } from './logs';
 import path = require('path');
+import { GitHandler } from './git-utils';
 
 class MyComment implements vsc.Comment {
     constructor(
@@ -21,46 +21,6 @@ class MyComment implements vsc.Comment {
     ) {}
 }
 
-class Activator {
-    constructor(
-        private gitUtils: GitUtils,
-        private retries: number,
-        private time: number,
-    ) {
-        if (retries <= 0) throw Error('Retries must be positive.');
-        if (time <= 0) throw Error('Time must be positive.');
-    }
-
-    tryActivate(callback: () => void) {
-        log(`Trying...`);
-        switch (this.gitUtils.loadExtensionAPI()) {
-            case Status.Available:
-                log('Found git extension loaded');
-                callback();
-                break;
-            case Status.NotAGitRepo:
-                log('Not a git repository, exiting.');
-                break;
-            case Status.Disabled:
-                vsc.window.showWarningMessage('Git Extension not active!');
-                break;
-            case Status.Unavailable:
-                if (this.retries === 0)
-                    vsc.window.showWarningMessage(
-                        'Git Extension not available!',
-                    );
-                else {
-                    this.retries--;
-                    setTimeout(
-                        () => this.tryActivate(callback),
-                        this.time * 1000,
-                    );
-                }
-                break;
-        }
-    }
-}
-
 export class ExtensionController {
     private statusBarItem: vsc.StatusBarItem;
     private lastBranch: string | null = null;
@@ -69,19 +29,15 @@ export class ExtensionController {
     private allComments: vsc.CommentThread[] = [];
 
     constructor(
+        private gitHandler: GitHandler,
         private configManager: ConfigurationManager,
         private client: AzureClient,
-        private gitUtils: GitUtils,
     ) {}
 
-    activate(context: vsc.ExtensionContext) {
-        new Activator(this.gitUtils, 5, 3).tryActivate(() => {
-            this.finishActivate(context);
-        });
-    }
+    async activate(context: vsc.ExtensionContext) {
+        await this.gitHandler.load();
+        this.configManager.activate();
 
-    private finishActivate(context: vsc.ExtensionContext) {
-        this.client = getClient(this.configManager);
         this.statusBarItem = vsc.window.createStatusBarItem(
             vsc.StatusBarAlignment.Left,
         );
@@ -97,42 +53,36 @@ export class ExtensionController {
             },
         };
 
-        context.subscriptions.push(this.commentController);
         context.subscriptions.push(
+            this.commentController,
+            this.configManager,
             vsc.commands.registerCommand(C.REFRESH_CMD, async () =>
                 this.refresh(),
             ),
-        );
-        context.subscriptions.push(
             vsc.commands.registerCommand(
                 C.OPEN_FILE_CMD,
                 async (filePath, start, end) =>
                     this.openFile(filePath, start, end),
             ),
-        );
-        context.subscriptions.push(
             vsc.commands.registerCommand(C.OPEN_PR_CMD, async () =>
                 this.openPR(),
             ),
-        );
-        context.subscriptions.push(
             vsc.commands.registerCommand(
                 C.CREATE_THREAD_CMD,
                 async (reply: vsc.CommentReply) => this.createComment(reply),
             ),
-        );
-        context.subscriptions.push(
             vsc.commands.registerCommand(
                 C.REPLY_CMD,
                 async (reply: vsc.CommentReply) => this.createComment(reply),
             ),
+            vsc.workspace.onDidChangeConfiguration(e => {
+                this.configManager.emitChangedConfig(e);
+            }),
         );
 
-        context.subscriptions.push(
-            vsc.workspace.onDidChangeConfiguration(e =>
-                this.configManager.configChanged(e),
-            ),
-        );
+        this.configManager.onConfigChanged(() => {
+            this.refresh();
+        });
 
         this.refresh();
     }
@@ -140,8 +90,7 @@ export class ExtensionController {
     private async createComment(reply: vsc.CommentReply) {
         const thread = reply.thread;
         const pullRequestId = this.pullRequest!.pullRequestId!;
-        const name =
-            (await this.gitUtils.getCurrentUsername()) ?? 'Anonymous User';
+        const name = 'foo';
 
         let comment: MyComment;
         if (!thread.comments.length) {
@@ -183,7 +132,7 @@ export class ExtensionController {
 
     private async refresh() {
         try {
-            const currentBranch = this.gitUtils.getCurrentBranch();
+            const currentBranch = await this.gitHandler.getCurrentBranch();
             if (!currentBranch) {
                 vsc.window.showErrorMessage('Cannot detect current branch!');
                 return;
@@ -198,9 +147,11 @@ export class ExtensionController {
                     this.lastBranch!,
                 );
 
-                if (this.pullRequest)
+                if (this.pullRequest) {
                     log(`Downloaded PR ${this.pullRequest.pullRequestId!}`);
-                else log('No PR found');
+                } else {
+                    log('No PR found');
+                }
             }
 
             if (!this.pullRequest) {
@@ -255,7 +206,7 @@ export class ExtensionController {
         if (!prId) return;
 
         const uri = vsc.Uri.parse(
-            this.configManager.configuration.buildPullRequestId(prId),
+            this.configManager._configuration.buildPullRequestId(prId),
         );
         vsc.env.openExternal(uri);
     }
@@ -324,7 +275,7 @@ export class ExtensionController {
     private toUri(filePath: string): vsc.Uri {
         return vsc.Uri.file(
             path.join(
-                this.gitUtils.getRepoRoot()!,
+                this.gitHandler.repositoryRoot,
                 filePath.replace(/^\//, ''),
             ),
         );

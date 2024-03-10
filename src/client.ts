@@ -11,6 +11,7 @@ import { IRequestHandler } from 'azure-devops-node-api/interfaces/common/VsoBase
 import { Configuration, ConfigurationManager } from './config';
 
 export interface AzureClient {
+    activate(): Promise<void>;
     loadPullRequest(branchName: string): Promise<GitPullRequest | null>;
     loadThreads(pullRequestId: number): Promise<GitPullRequestCommentThread[]>;
     comment(
@@ -28,28 +29,36 @@ export interface AzureClient {
 class AzureRealClient implements AzureClient {
     authHandler: IRequestHandler;
     connection: azdev.WebApi;
-    gitClient: IGitApi | undefined;
     configurationManager: ConfigurationManager;
+    _gitClient: IGitApi | null = null;
 
     constructor(confManager: ConfigurationManager) {
         this.configurationManager = confManager;
         this.authHandler = azdev.getPersonalAccessTokenHandler(
-            confManager.configuration.token,
+            confManager._configuration.token,
         );
         this.connection = new azdev.WebApi(
-            confManager.configuration.organizationUrl,
+            confManager._configuration.organizationUrl,
             this.authHandler,
         );
     }
 
+    get gitClient(): IGitApi {
+        if (this._gitClient) return this._gitClient;
+
+        throw new Error('Activate not called');
+    }
+
+    async activate(): Promise<void> {
+        this._gitClient = await this.connection.getGitApi();
+    }
+
     get configuration(): Configuration {
-        return this.configurationManager.configuration;
+        return this.configurationManager._configuration;
     }
 
     async loadPullRequest(branchName: string): Promise<GitPullRequest> {
-        await this.loadClient();
-
-        const prs = await this.gitClient!.getPullRequestsByProject(
+        const prs = await this.gitClient.getPullRequestsByProject(
             this.configuration.projectName,
             { sourceRefName: `refs/heads/${branchName}` },
         );
@@ -59,9 +68,7 @@ class AzureRealClient implements AzureClient {
     async loadThreads(
         pullRequestId: number,
     ): Promise<GitPullRequestCommentThread[]> {
-        await this.loadClient();
-
-        return await this.gitClient!.getThreads(
+        return await this.gitClient.getThreads(
             this.configuration.repositoryName,
             pullRequestId,
             this.configuration.projectName,
@@ -72,9 +79,7 @@ class AzureRealClient implements AzureClient {
         pullRequestId: number,
         content: string,
     ): Promise<GitPullRequestCommentThread> {
-        await this.loadClient();
-
-        return await this.gitClient!.createThread(
+        return await this.gitClient.createThread(
             {
                 comments: [this._createComment(content)],
                 status: CommentThreadStatus.Active,
@@ -91,9 +96,7 @@ class AzureRealClient implements AzureClient {
         threadId: number,
         parentCommentId: number | null = null,
     ): Promise<Comment> {
-        await this.loadClient();
-
-        return await this.gitClient!.createComment(
+        return await this.gitClient.createComment(
             this._createComment(content, parentCommentId),
             this.configuration.repositoryName,
             pullRequestId,
@@ -113,12 +116,6 @@ class AzureRealClient implements AzureClient {
             parentCommentId: parentCommentId ?? undefined,
         };
     }
-
-    private async loadClient() {
-        if (!this.gitClient) {
-            this.gitClient = await this.connection.getGitApi();
-        }
-    }
 }
 
 class MockClient implements AzureClient {
@@ -132,6 +129,8 @@ class MockClient implements AzureClient {
             return false;
         }
     }
+
+    async activate(): Promise<void> {}
 
     async loadPullRequest(branchName: string): Promise<GitPullRequest | null> {
         const m = await import('./mocks/pr.mock');
