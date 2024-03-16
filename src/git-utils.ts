@@ -60,9 +60,9 @@ export class GitHandler {
 
             res.on('close', () => {
                 if (out.length) {
-                    resolve(Buffer.concat(out).toString('utf-8'));
+                    resolve(Buffer.concat(out).toString('utf-8').trim());
                 } else {
-                    reject(Buffer.concat(err).toString('utf-8'));
+                    reject(Buffer.concat(err).toString('utf-8').trim());
                 }
             });
         });

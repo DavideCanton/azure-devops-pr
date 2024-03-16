@@ -1,6 +1,6 @@
 import * as gi from 'azure-devops-node-api/interfaces/GitInterfaces';
 import * as vsc from 'vscode';
-import { AzureClient } from './client';
+import { AzureClient, getClient } from './client';
 import { ConfigurationManager } from './config';
 import * as C from './constants';
 import { log, logException } from './logs';
@@ -27,11 +27,12 @@ export class ExtensionController {
     private pullRequest: gi.GitPullRequest | null = null;
     private commentController: vsc.CommentController;
     private allComments: vsc.CommentThread[] = [];
+    private client: AzureClient;
+    private fsWatcher: vsc.FileSystemWatcher;
 
     constructor(
         private gitHandler: GitHandler,
         private configManager: ConfigurationManager,
-        private client: AzureClient,
     ) {}
 
     async activate(context: vsc.ExtensionContext) {
@@ -57,7 +58,7 @@ export class ExtensionController {
             this.commentController,
             this.configManager,
             vsc.commands.registerCommand(C.REFRESH_CMD, async () =>
-                this.refresh(),
+                this.load(),
             ),
             vsc.commands.registerCommand(
                 C.OPEN_FILE_CMD,
@@ -81,10 +82,34 @@ export class ExtensionController {
         );
 
         this.configManager.onConfigChanged(() => {
-            this.refresh();
+            this.load(true);
         });
 
-        this.refresh();
+        await this.load();
+
+        this.setupMonitor(context);
+    }
+
+    deactivate() {}
+
+    private async setupMonitor(context: vsc.ExtensionContext) {
+        const repo = this.gitHandler.repositoryRoot;
+
+        // TODO this does not work with worktrees
+        this.fsWatcher = vsc.workspace.createFileSystemWatcher(
+            new vsc.RelativePattern(vsc.Uri.file(repo), '.git/HEAD'),
+        );
+
+        const branchChangeCallback = async () => {
+            const currentBranch = await this.gitHandler.getCurrentBranch();
+            if (currentBranch) await this.redownload(currentBranch);
+        };
+
+        this.fsWatcher.onDidCreate(u => branchChangeCallback());
+        this.fsWatcher.onDidChange(u => branchChangeCallback());
+        this.fsWatcher.onDidDelete(u => branchChangeCallback());
+
+        context.subscriptions.push(this.fsWatcher);
     }
 
     private async createComment(reply: vsc.CommentReply) {
@@ -121,6 +146,7 @@ export class ExtensionController {
                 vsc.CommentMode.Preview,
                 { name },
                 azureThread,
+
                 createdComment,
             );
         }
@@ -128,9 +154,46 @@ export class ExtensionController {
         thread.comments = [...thread.comments, comment];
     }
 
-    deactivate() {}
+    private async redownload(currentBranch: string, force: boolean = false) {
+        // redownload pull request if branch has changed or no pr was downloaded
+        if (currentBranch !== this.lastBranch || !this.pullRequest || force) {
+            this.lastBranch = currentBranch;
+            this.pullRequest = await this.client.loadPullRequest(
+                this.lastBranch!,
+            );
 
-    private async refresh() {
+            if (this.pullRequest) {
+                log(`Downloaded PR ${this.pullRequest.pullRequestId!}`);
+            } else {
+                log('No PR found');
+            }
+        }
+
+        if (!this.pullRequest) {
+            vsc.window.showInformationMessage(
+                'No pull request found for this branch.',
+            );
+            return;
+        }
+
+        const prId = this.pullRequest!.pullRequestId!;
+        const threads = await this.client.loadThreads(prId);
+
+        log(`Downloaded ${threads.length} threads.`);
+
+        this.clearComments();
+
+        this.allComments = threads
+            .filter(t => this.validThread(t))
+            .map(t => this.createVscodeThread(t))
+            .filter(c => !!c) as vsc.CommentThread[];
+
+        this.statusBarItem.text = `$(git-pull-request) PR: #${prId}`;
+        this.statusBarItem.command = C.OPEN_PR_CMD;
+        this.statusBarItem.show();
+    }
+
+    private async load(force: boolean = false) {
         try {
             const currentBranch = await this.gitHandler.getCurrentBranch();
             if (!currentBranch) {
@@ -140,42 +203,10 @@ export class ExtensionController {
 
             log(`Detected branch ${currentBranch}`);
 
-            // redownload pull request if branch has changed or no pr was downloaded
-            if (currentBranch !== this.lastBranch || !this.pullRequest) {
-                this.lastBranch = currentBranch;
-                this.pullRequest = await this.client.loadPullRequest(
-                    this.lastBranch!,
-                );
+            this.client = getClient(this.configManager);
+            await this.client.activate();
 
-                if (this.pullRequest) {
-                    log(`Downloaded PR ${this.pullRequest.pullRequestId!}`);
-                } else {
-                    log('No PR found');
-                }
-            }
-
-            if (!this.pullRequest) {
-                vsc.window.showInformationMessage(
-                    'No pull request found for this branch.',
-                );
-                return;
-            }
-
-            const prId = this.pullRequest!.pullRequestId!;
-            const threads = await this.client.loadThreads(prId);
-
-            log(`Downloaded ${threads.length} threads.`);
-
-            this.clearComments();
-
-            this.allComments = threads
-                .filter(t => this.validThread(t))
-                .map(t => this.createVscodeThread(t))
-                .filter(c => !!c) as vsc.CommentThread[];
-
-            this.statusBarItem.text = `$(git-pull-request) PR: #${prId}`;
-            this.statusBarItem.command = C.OPEN_PR_CMD;
-            this.statusBarItem.show();
+            await this.redownload(currentBranch, force);
         } catch (error) {
             this.clearComments();
             vsc.window.showErrorMessage('Error while downloading comments');

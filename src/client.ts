@@ -7,7 +7,6 @@ import {
     GitPullRequest,
     GitPullRequestCommentThread,
 } from 'azure-devops-node-api/interfaces/GitInterfaces';
-import { IRequestHandler } from 'azure-devops-node-api/interfaces/common/VsoBaseInterfaces';
 import { Configuration, ConfigurationManager } from './config';
 
 export interface AzureClient {
@@ -27,19 +26,18 @@ export interface AzureClient {
 }
 
 class AzureRealClient implements AzureClient {
-    authHandler: IRequestHandler;
     connection: azdev.WebApi;
     configurationManager: ConfigurationManager;
     _gitClient: IGitApi | null = null;
 
     constructor(confManager: ConfigurationManager) {
         this.configurationManager = confManager;
-        this.authHandler = azdev.getPersonalAccessTokenHandler(
+        const authHandler = azdev.getPersonalAccessTokenHandler(
             confManager._configuration.token,
         );
         this.connection = new azdev.WebApi(
             confManager._configuration.organizationUrl,
-            this.authHandler,
+            authHandler,
         );
     }
 
@@ -119,17 +117,6 @@ class AzureRealClient implements AzureClient {
 }
 
 class MockClient implements AzureClient {
-    static get canLoad(): boolean {
-        try {
-            const debug = ['1', 'T', 'true'].includes(process.env.ext_debug!);
-            if (!debug) return false;
-            import('./mocks/pr.mock');
-            return true;
-        } catch {
-            return false;
-        }
-    }
-
     async activate(): Promise<void> {}
 
     async loadPullRequest(branchName: string): Promise<GitPullRequest | null> {
@@ -162,7 +149,16 @@ class MockClient implements AzureClient {
 }
 
 export function getClient(cm: ConfigurationManager): AzureClient {
-    if (MockClient.canLoad) {
+    let useMock;
+
+    const debug = process.env.ext_debug;
+    if (debug) {
+        useMock = ['1', 'T', 'true'].includes(debug);
+    } else {
+        useMock = false;
+    }
+
+    if (useMock) {
         return new MockClient();
     } else {
         return new AzureRealClient(cm);
