@@ -9,6 +9,8 @@ import {
 } from 'azure-devops-node-api/interfaces/GitInterfaces';
 import { Configuration, ConfigurationManager } from './config';
 
+declare const USE_MOCKS: boolean;
+
 export interface AzureClient {
     activate(): Promise<void>;
     loadPullRequest(branchName: string): Promise<GitPullRequest | null>;
@@ -120,15 +122,13 @@ class MockClient implements AzureClient {
     async activate(): Promise<void> {}
 
     async loadPullRequest(branchName: string): Promise<GitPullRequest | null> {
-        const m = await import('./mocks/pr.mock');
-        return m.default;
+        return (await import('./mocks')).PR;
     }
 
     async loadThreads(
         pullRequestId: number,
     ): Promise<GitPullRequestCommentThread[]> {
-        const m = await import('./mocks/threads.mock');
-        return m.default;
+        return (await import('./mocks')).THREADS;
     }
 
     async comment(
@@ -149,16 +149,7 @@ class MockClient implements AzureClient {
 }
 
 export function getClient(cm: ConfigurationManager): AzureClient {
-    let useMock;
-
-    const debug = process.env.ext_debug;
-    if (debug) {
-        useMock = ['1', 'T', 'true'].includes(debug);
-    } else {
-        useMock = false;
-    }
-
-    if (useMock) {
+    if (USE_MOCKS) {
         return new MockClient();
     } else {
         return new AzureRealClient(cm);

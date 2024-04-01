@@ -69,7 +69,13 @@ export class ExtensionController {
             return;
         }
 
-        this.configManager.activate();
+        try {
+            this.configManager.activate();
+        } catch (e) {
+            log('Cannot load configuration!');
+            logException(e as Error);
+            return;
+        }
         this.statusBarHandler = new StatusBarHandler();
 
         this.commentController = comments.createCommentController(
@@ -208,12 +214,21 @@ export class ExtensionController {
     }
 
     private async load(reloadClient = false) {
-        try {
-            if (!this.client || reloadClient) {
+        if (!this.client || reloadClient) {
+            try {
                 this.client = getClient(this.configManager);
                 await this.client.activate();
+            } catch (error) {
+                this.clearComments();
+                window.showErrorMessage(
+                    'Error while initializing the extension',
+                );
+                logException(error as Error);
+                throw error;
             }
+        }
 
+        try {
             const currentBranch = await this.gitHandler.getCurrentBranch();
             if (!currentBranch) {
                 window.showErrorMessage('Cannot detect current branch!');

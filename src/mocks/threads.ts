@@ -1,6 +1,6 @@
 import { GitPullRequestCommentThread } from 'azure-devops-node-api/interfaces/GitInterfaces';
 
-let THREADS: GitPullRequestCommentThread[] = [
+export const THREADS: GitPullRequestCommentThread[] = [
     {
         pullRequestThreadContext: {
             iterationContext: {
@@ -459,4 +459,3 @@ let THREADS: GitPullRequestCommentThread[] = [
         },
     },
 ];
-export default THREADS;

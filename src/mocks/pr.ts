@@ -1,6 +1,6 @@
 import { GitPullRequest } from 'azure-devops-node-api/interfaces/GitInterfaces';
 
-const PR: GitPullRequest = {
+export const PR: GitPullRequest = {
     repository: {
         id: '0e9d5414-154f-478a-8461-25899db10648',
         name: 'Prova',
@@ -80,4 +80,3 @@ const PR: GitPullRequest = {
     url: 'https://dev.azure.com/davidecanton5/9ca4c4ec-c08b-427f-91fc-00f2c4e121a1/_apis/git/repositories/0e9d5414-154f-478a-8461-25899db10648/pullRequests/1',
     supportsIterations: true,
 };
-export default PR;

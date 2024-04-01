@@ -112,7 +112,7 @@ export class ConfigurationManager implements Disposable {
         const settings = workspace.getConfiguration(
             EXT_ID,
         ) as WorkspaceConfiguration & Settings;
-
+        
         this._configuration = Configuration.fromSettings(settings);
         log('Configuration loaded');
     }
