@@ -1,6 +1,7 @@
-import { spawn } from 'child_process';
+import { spawn } from 'node:child_process';
 import * as vsc from 'vscode';
 import { log } from './logs';
+import { lstat } from 'node:fs/promises';
 
 /**
  * Utility class for retrieving information about the repository.
@@ -12,16 +13,30 @@ export class GitHandler {
         return this._repositoryRoot;
     }
 
-    async load(): Promise<void> {
+    async load(): Promise<boolean> {
         const workspaceFolders = vsc.workspace.workspaceFolders;
+
         if (workspaceFolders) {
+            const rootPath = workspaceFolders[0].uri.fsPath;
+            try {
+                await lstat(rootPath);
+            } catch (e) {
+                if ((e as any).code === 'ENOENT') {
+                    return false;
+                }
+                throw e;
+            }
+
             const res = await this._runGitCommand(
                 'rev-parse',
                 ['--show-toplevel'],
-                workspaceFolders[0].uri.fsPath,
+                rootPath,
             );
             this._repositoryRoot = res.trim();
+            return true;
         }
+
+        return false;
     }
 
     async getCurrentBranch(): Promise<string | null> {

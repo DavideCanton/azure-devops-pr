@@ -1,8 +1,8 @@
-import * as vsc from 'vscode';
+import { window } from 'vscode';
 
-const _OUT_CHANNEL = vsc.window.createOutputChannel('Azure DevOps PR');
+const _OUT_CHANNEL = window.createOutputChannel('Azure DevOps PR');
 
-export function log(msg: string) {
+export function log(msg: any) {
     const date = new Date();
     _OUT_CHANNEL.appendLine(
         `[${date.toLocaleDateString()} - ${date.toLocaleTimeString()}] ${msg}`,

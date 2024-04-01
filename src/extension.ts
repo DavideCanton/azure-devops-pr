@@ -1,6 +1,6 @@
-import * as vsc from 'vscode';
-import { ExtensionController } from './controller';
+import { ExtensionContext } from 'vscode';
 import { ConfigurationManager } from './config';
+import { ExtensionController } from './controller';
 import { GitHandler } from './git-utils';
 
 const configurationManager = new ConfigurationManager();
@@ -10,7 +10,7 @@ const extensionController = new ExtensionController(
     configurationManager,
 );
 
-export async function activate(context: vsc.ExtensionContext) {
+export async function activate(context: ExtensionContext) {
     await extensionController.activate(context);
 }
 

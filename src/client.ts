@@ -1,4 +1,4 @@
-import * as azdev from 'azure-devops-node-api';
+import { WebApi, getPersonalAccessTokenHandler } from 'azure-devops-node-api';
 import { IGitApi } from 'azure-devops-node-api/GitApi';
 import {
     Comment,
@@ -26,16 +26,16 @@ export interface AzureClient {
 }
 
 class AzureRealClient implements AzureClient {
-    connection: azdev.WebApi;
+    connection: WebApi;
     configurationManager: ConfigurationManager;
     _gitClient: IGitApi | null = null;
 
     constructor(confManager: ConfigurationManager) {
         this.configurationManager = confManager;
-        const authHandler = azdev.getPersonalAccessTokenHandler(
+        const authHandler = getPersonalAccessTokenHandler(
             confManager._configuration.token,
         );
-        this.connection = new azdev.WebApi(
+        this.connection = new WebApi(
             confManager._configuration.organizationUrl,
             authHandler,
         );
