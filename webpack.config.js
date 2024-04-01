@@ -41,16 +41,25 @@ const config = {
         ],
     },
     plugins: [
-        // define USE_MOCKS variable to detect at runtime if mocks should be used
+        // define DEV_MODE variable to detect dev mode at runtime
         new webpack.DefinePlugin({
-            USE_MOCKS: JSON.stringify(isDev),
+            DEV_MODE: JSON.stringify(isDev),
         }),
-        // ignore ./mocks import in production to have webpack not compile the module
-        isDev
-            ? false
-            : new webpack.IgnorePlugin({
-                  resourceRegExp: /^\.\/mocks$/,
-              }),
+        new webpack.ProgressPlugin(),
+        // dev only plugins
+        ...(isDev
+            ? [
+                  // replace client import from ./client with ./mocks/client in dev mode
+                  new webpack.NormalModuleReplacementPlugin(
+                      /\.\/client/,
+                      './mocks/client',
+                  ),
+                  // don't include mocks in prod build. Mainly as a safety measure.
+                  new webpack.IgnorePlugin({
+                      resourceRegExp: /^\.\/mocks$/,
+                  }),
+              ]
+            : []),
     ],
 };
 module.exports = config;

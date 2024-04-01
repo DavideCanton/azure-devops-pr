@@ -1,12 +1,12 @@
-import { StatusBarAlignment, StatusBarItem, window } from 'vscode';
+import * as vsc from 'vscode';
 import * as C from './constants';
 
 export class StatusBarHandler {
-    statusBarItem: StatusBarItem;
+    statusBarItem: vsc.StatusBarItem;
 
     constructor() {
-        this.statusBarItem = window.createStatusBarItem(
-            StatusBarAlignment.Left,
+        this.statusBarItem = vsc.window.createStatusBarItem(
+            vsc.StatusBarAlignment.Left,
         );
     }
 

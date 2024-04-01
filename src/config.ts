@@ -1,14 +1,7 @@
-import {
-    ConfigurationChangeEvent,
-    WorkspaceConfiguration,
-    workspace,
-    Event,
-    EventEmitter,
-    Disposable,
-} from 'vscode';
+import * as vsc from 'vscode';
 import { EXT_ID } from './constants';
-import { buildUri } from './utils';
 import { log } from './logs';
+import { buildUri } from './utils';
 
 /**
  * Settings object.
@@ -80,9 +73,9 @@ function requireKey<S extends keyof Settings>(
     }
 }
 
-export class ConfigurationManager implements Disposable {
+export class ConfigurationManager implements vsc.Disposable {
     _configuration: Configuration;
-    private _configChanged = new EventEmitter<Configuration>();
+    private _configChanged = new vsc.EventEmitter<Configuration>();
 
     get configuration(): Configuration {
         return this._configuration;
@@ -92,11 +85,11 @@ export class ConfigurationManager implements Disposable {
         this._loadConfiguration();
     }
 
-    get onConfigChanged(): Event<Configuration> {
+    get onConfigChanged(): vsc.Event<Configuration> {
         return this._configChanged.event;
     }
 
-    emitChangedConfig(e: ConfigurationChangeEvent): void {
+    emitChangedConfig(e: vsc.ConfigurationChangeEvent): void {
         if (e.affectsConfiguration('azure-devops-pr')) {
             log('Configuration changed, reloading...');
             this._loadConfiguration();
@@ -109,10 +102,10 @@ export class ConfigurationManager implements Disposable {
     }
 
     private _loadConfiguration() {
-        const settings = workspace.getConfiguration(
+        const settings = vsc.workspace.getConfiguration(
             EXT_ID,
-        ) as WorkspaceConfiguration & Settings;
-        
+        ) as vsc.WorkspaceConfiguration & Settings;
+
         this._configuration = Configuration.fromSettings(settings);
         log('Configuration loaded');
     }

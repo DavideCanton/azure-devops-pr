@@ -1,7 +1,8 @@
-import { ExtensionContext } from 'vscode';
+import * as vsc from 'vscode';
 import { ConfigurationManager } from './config';
 import { ExtensionController } from './controller';
 import { GitHandler } from './git-utils';
+import { log } from './logs';
 
 const configurationManager = new ConfigurationManager();
 
@@ -10,13 +11,13 @@ const extensionController = new ExtensionController(
     configurationManager,
 );
 
-export async function activate(context: ExtensionContext) {
+export async function activate(context: vsc.ExtensionContext) {
+    if (DEV_MODE) {
+        log('Activated dev mode');
+    }
     await extensionController.activate(context);
 }
 
 export function deactivate() {
     extensionController.deactivate();
 }
-
-// TODO reset comments when switching branch (how?)
-// filter out unused threads (by status?)

@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
+import { lstat } from 'node:fs/promises';
 import * as vsc from 'vscode';
 import { log } from './logs';
-import { lstat } from 'node:fs/promises';
 
 /**
  * Utility class for retrieving information about the repository.
