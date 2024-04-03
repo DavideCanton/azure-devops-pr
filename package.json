@@ -81,6 +81,7 @@
         "test-compile": "tsc -p ./",
         "webpack": "webpack --node-env development",
         "webpack-dev": "webpack --node-env development --watch",
+        "webpack-dev-mocks": "webpack --node-env development --watch --env mocks",
         "webpack-prod": "webpack --node-env production --devtool hidden-source-map",
         "package": "vsce package",
         "lint": "eslint src --ext ts",

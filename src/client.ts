@@ -2,8 +2,11 @@ import * as nodeApi from 'azure-devops-node-api';
 import * as gitApi from 'azure-devops-node-api/GitApi';
 import * as gi from 'azure-devops-node-api/interfaces/GitInterfaces';
 import { Configuration, ConfigurationManager } from './config';
+import { Identity } from 'azure-devops-node-api/interfaces/IdentitiesInterfaces';
 
 export interface AzureClient {
+    readonly user: Identity;
+
     activate(): Promise<void>;
     loadPullRequest(branchName: string): Promise<gi.GitPullRequest | null>;
     loadThreads(
@@ -18,6 +21,7 @@ export interface AzureClient {
     createThread(
         pullRequestId: number,
         content: string,
+        threadContext?: gi.CommentThreadContext,
     ): Promise<gi.GitPullRequestCommentThread>;
 }
 
@@ -29,6 +33,7 @@ class AzureRealClient implements AzureClient {
     connection: nodeApi.WebApi;
     configurationManager: ConfigurationManager;
     _gitClient: gitApi.IGitApi | null = null;
+    _user: Identity | null = null;
 
     constructor(confManager: ConfigurationManager) {
         this.configurationManager = confManager;
@@ -41,6 +46,13 @@ class AzureRealClient implements AzureClient {
         );
     }
 
+    get user(): Identity {
+        if (!this._user) {
+            throw Error('User not authenticated');
+        }
+        return this._user;
+    }
+
     get gitClient(): gitApi.IGitApi {
         if (this._gitClient) return this._gitClient;
 
@@ -49,6 +61,8 @@ class AzureRealClient implements AzureClient {
 
     async activate(): Promise<void> {
         this._gitClient = await this.connection.getGitApi();
+        this._user =
+            (await this.connection.connect()).authenticatedUser ?? null;
     }
 
     get configuration(): Configuration {
@@ -76,11 +90,13 @@ class AzureRealClient implements AzureClient {
     async createThread(
         pullRequestId: number,
         content: string,
+        threadContext?: gi.CommentThreadContext,
     ): Promise<gi.GitPullRequestCommentThread> {
         return await this.gitClient.createThread(
             {
                 comments: [this._createComment(content)],
                 status: gi.CommentThreadStatus.Active,
+                threadContext,
             },
             this.configuration.repositoryName,
             pullRequestId,
@@ -108,7 +124,9 @@ class AzureRealClient implements AzureClient {
         parentCommentId: number | null = null,
     ): gi.Comment {
         return {
-            author: {},
+            author: {
+                id: this.user.id,
+            },
             commentType: gi.CommentType.Text,
             content,
             parentCommentId: parentCommentId ?? undefined,

@@ -7,6 +7,9 @@ import * as C from './constants';
 import { GitHandler } from './git-utils';
 import { log, logException } from './logs';
 import { StatusBarHandler } from './status-bar';
+import path = require('node:path');
+import { Identity } from 'azure-devops-node-api/interfaces/IdentitiesInterfaces';
+import { IdentityRef } from 'azure-devops-node-api/interfaces/common/VSSInterfaces';
 
 class MyComment implements vsc.Comment {
     constructor(
@@ -19,8 +22,15 @@ class MyComment implements vsc.Comment {
         public contextValue?: string,
         public label?: string,
         public timestamp?: Date,
-    ) {}
+    ) { }
 }
+
+const RESOLVED_STATUSES: readonly gi.CommentThreadStatus[] = [
+    gi.CommentThreadStatus.ByDesign,
+    gi.CommentThreadStatus.Closed,
+    gi.CommentThreadStatus.Fixed,
+    gi.CommentThreadStatus.WontFix,
+];
 
 export class ExtensionController {
     private statusBarHandler: StatusBarHandler;
@@ -34,7 +44,7 @@ export class ExtensionController {
     constructor(
         private gitHandler: GitHandler,
         private configManager: ConfigurationManager,
-    ) {}
+    ) { }
 
     async activate(context: vsc.ExtensionContext) {
         if (!(await this.gitHandler.load())) {
@@ -98,7 +108,7 @@ export class ExtensionController {
         this.setupMonitor(context);
     }
 
-    deactivate() {}
+    deactivate() { }
 
     private setupMonitor(context: vsc.ExtensionContext) {
         const repo = this.gitHandler.repositoryRoot;
@@ -123,21 +133,58 @@ export class ExtensionController {
     private async createComment(reply: vsc.CommentReply) {
         const thread = reply.thread;
         const pullRequestId = this.pullRequest!.pullRequestId!;
-        const name = 'foo';
 
         let comment: MyComment;
+
         if (!thread.comments.length) {
+            const line = reply.thread.range.start.line;
+            const editor = vsc.window.visibleTextEditors.find(
+                e => e.document.uri.scheme === 'file',
+            );
+            if (!editor) {
+                vsc.window.showErrorMessage("Cannot create comment");
+                return;
+            }
+            const lineLength =
+                editor.document.lineAt(line).range.end.character + 1;
+
+            const rel = path.relative(
+                this.gitHandler.repositoryRoot,
+                reply.thread.uri.fsPath,
+            );
+            let filePath;
+            if (process.platform === 'win32') {
+                filePath = path.posix.join(...rel.split(path.win32.sep));
+            } else {
+                filePath = rel;
+            }
+
             const azureThread = await this.client.createThread(
                 pullRequestId,
                 reply.text,
+                {
+                    filePath: '/' + filePath,
+                    rightFileStart: {
+                        line: line + 1,
+                        offset: 1,
+                    },
+                    rightFileEnd: {
+                        line: line + 1,
+                        offset: lineLength,
+                    },
+                },
             );
             comment = new MyComment(
                 new vsc.MarkdownString(reply.text),
                 vsc.CommentMode.Preview,
-                { name },
+                { name: this.formatAuthor() },
                 azureThread,
                 azureThread.comments![0],
             );
+            thread.label =
+                gi.CommentThreadStatus[
+                    gi.CommentThreadStatus.Active
+                ].toString();
         } else {
             const lastComment = thread.comments[
                 thread.comments.length - 1
@@ -152,14 +199,34 @@ export class ExtensionController {
             comment = new MyComment(
                 new vsc.MarkdownString(reply.text),
                 vsc.CommentMode.Preview,
-                { name },
+                { name: this.formatAuthor() },
                 azureThread,
-
                 createdComment,
             );
         }
 
         thread.comments = [...thread.comments, comment];
+    }
+
+    private formatAuthor(user: IdentityRef | undefined | "self" = "self"): string {
+        const defaultName = 'Unknown user';
+
+        let display = undefined;
+        if (user) {
+            if (user === "self") {
+                display = this.client.user.customDisplayName;
+            }
+            else if ("displayName" in user) {
+                display = user.displayName;
+            }
+        }
+        if (!display)
+            display = defaultName;
+
+        if (user === "self" || user.id === this.client.user.id)
+            display += " (You)";
+
+        return display;
     }
 
     private async redownload(currentBranch: string) {
@@ -185,10 +252,14 @@ export class ExtensionController {
 
         this.clearComments();
 
-        this.allComments = threads
-            .filter(t => this.validThread(t))
-            .map(t => this.createVscodeThread(t))
-            .filter(c => !!c) as vsc.CommentThread[];
+        this.allComments = [];
+
+        for (const t of threads) {
+            if (this.validThread(t)) {
+                const vscThread = await this.createVscodeThread(t);
+                if (vscThread) this.allComments.push(vscThread);
+            }
+        }
     }
 
     private async load(reloadClient = false) {
@@ -249,33 +320,65 @@ export class ExtensionController {
         vsc.env.openExternal(uri);
     }
 
-    private createVscodeThread(
+    private async createVscodeThread(
         thread: gi.GitPullRequestCommentThread,
-    ): vsc.CommentThread | null {
+    ): Promise<vsc.CommentThread | null> {
         const context = thread.threadContext!;
 
-        const comments =
-            thread.comments?.map(comment => {
-                return new MyComment(
-                    new vsc.MarkdownString(comment.content!),
+        const comments: MyComment[] = [];
+
+        for (const comment of thread.comments ?? []) {
+            // TODO fix here
+            // const avatar = comment.author?._links.avatar.href;
+            // const iconPath = avatar ? (await this.client.getAvatar(avatar)) : undefined;
+
+            let reactions: vsc.CommentReaction[] | undefined = undefined;
+            if (comment.usersLiked) {
+                const likedByYou = comment.usersLiked.some(
+                    u => u.id === this.client.user.id,
+                );
+                const countOthers =
+                    comment.usersLiked.length - (likedByYou ? 1 : 0);
+
+                reactions = [];
+
+                if (likedByYou) {
+                    reactions.push({
+                        count: 1,
+                        label: 'Liked by you',
+                        authorHasReacted: true,
+                        iconPath: '',
+                    });
+                }
+                if (countOthers) {
+                    reactions.push({
+                        count: countOthers,
+                        label: 'Like',
+                        authorHasReacted: false,
+                        iconPath: '',
+                    });
+                }
+            }
+
+            let content = comment.content!;
+            content = content.replace(
+                /```suggestion/g,
+                '**Suggestion**:\n```suggestion',
+            );
+
+            comments.push(
+                new MyComment(
+                    new vsc.MarkdownString(content),
                     vsc.CommentMode.Preview,
                     {
-                        name: comment.author?.displayName ?? 'Author',
-                        // iconPath: c.author?._links.avatar.href
+                        name: this.formatAuthor(comment.author),
                     },
                     thread,
                     comment,
-                    comment.usersLiked
-                        ? [
-                              {
-                                  count: comment.usersLiked.length,
-                                  label: 'Like',
-                                  authorHasReacted: false,
-                              } as vsc.CommentReaction,
-                          ]
-                        : undefined,
-                );
-            }) ?? [];
+                    reactions,
+                ),
+            );
+        }
 
         // TODO filter out threads on files outside the current folder?
         const ct = this.commentController.createCommentThread(
@@ -287,9 +390,14 @@ export class ExtensionController {
             ),
             comments,
         );
-        ct.label = `[${
-            gi.CommentThreadStatus[thread.status!]
-        }] Thread ${thread.id!}`;
+        ct.label = gi.CommentThreadStatus[thread.status!].toString();
+
+        if (thread.status && RESOLVED_STATUSES.includes(thread.status)) {
+            ct.state = vsc.CommentThreadState.Resolved;
+        } else {
+            ct.state = vsc.CommentThreadState.Unresolved;
+        }
+
         return ct;
     }
 
@@ -302,7 +410,8 @@ export class ExtensionController {
             !!thread.threadContext &&
             !!thread.threadContext.filePath &&
             !!thread.threadContext.rightFileStart &&
-            !!thread.threadContext.rightFileEnd
+            !!thread.threadContext.rightFileEnd &&
+            !thread.isDeleted
         );
     }
 

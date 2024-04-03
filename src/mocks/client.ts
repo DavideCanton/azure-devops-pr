@@ -1,11 +1,19 @@
 import * as gi from 'azure-devops-node-api/interfaces/GitInterfaces';
+import { Identity } from 'azure-devops-node-api/interfaces/IdentitiesInterfaces';
 import { AzureClient } from '../client';
 import { ConfigurationManager } from '../config';
 import { PR } from './pr';
 import { THREADS } from './threads';
 
 class MockClient implements AzureClient {
-    async activate(): Promise<void> {}
+    user: Identity;
+
+    async activate(): Promise<void> {
+        this.user = {
+            customDisplayName: 'foo',
+            id: 'id',
+        };
+    }
 
     async loadPullRequest(
         branchName: string,
