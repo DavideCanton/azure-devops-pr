@@ -307,7 +307,7 @@ export class ExtensionController {
     }
 
     private toPosition(cp: gi.CommentPosition): vsc.Position {
-        return new vsc.Position(cp.line!, cp.offset! - 1);
+        return new vsc.Position(cp.line! - 1, cp.offset! - 1);
     }
 
     private toUri(filePath: string): vsc.Uri {
