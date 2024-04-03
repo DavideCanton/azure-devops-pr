@@ -22,7 +22,7 @@ class MyComment implements vsc.Comment {
         public contextValue?: string,
         public label?: string,
         public timestamp?: Date,
-    ) { }
+    ) {}
 }
 
 const RESOLVED_STATUSES: readonly gi.CommentThreadStatus[] = [
@@ -44,7 +44,7 @@ export class ExtensionController {
     constructor(
         private gitHandler: GitHandler,
         private configManager: ConfigurationManager,
-    ) { }
+    ) {}
 
     async activate(context: vsc.ExtensionContext) {
         if (!(await this.gitHandler.load())) {
@@ -68,7 +68,11 @@ export class ExtensionController {
         // A `CommentingRangeProvider` controls where gutter decorations that allow adding comments are shown
         this.commentController.commentingRangeProvider = {
             provideCommentingRanges: (document, token) => {
-                return [new vsc.Range(0, 0, document.lineCount, 1)];
+                if (document.uri.scheme === 'file') {
+                    return [new vsc.Range(0, 0, document.lineCount, 1)];
+                } else {
+                    return undefined;
+                }
             },
         };
 
@@ -108,7 +112,7 @@ export class ExtensionController {
         this.setupMonitor(context);
     }
 
-    deactivate() { }
+    deactivate() {}
 
     private setupMonitor(context: vsc.ExtensionContext) {
         const repo = this.gitHandler.repositoryRoot;
@@ -142,7 +146,7 @@ export class ExtensionController {
                 e => e.document.uri.scheme === 'file',
             );
             if (!editor) {
-                vsc.window.showErrorMessage("Cannot create comment");
+                vsc.window.showErrorMessage('Cannot create comment');
                 return;
             }
             const lineLength =
@@ -208,23 +212,23 @@ export class ExtensionController {
         thread.comments = [...thread.comments, comment];
     }
 
-    private formatAuthor(user: IdentityRef | undefined | "self" = "self"): string {
+    private formatAuthor(
+        user: IdentityRef | undefined | 'self' = 'self',
+    ): string {
         const defaultName = 'Unknown user';
 
         let display = undefined;
         if (user) {
-            if (user === "self") {
+            if (user === 'self') {
                 display = this.client.user.customDisplayName;
-            }
-            else if ("displayName" in user) {
+            } else if ('displayName' in user) {
                 display = user.displayName;
             }
         }
-        if (!display)
-            display = defaultName;
+        if (!display) display = defaultName;
 
-        if (user === "self" || user.id === this.client.user.id)
-            display += " (You)";
+        if (user === 'self' || user.id === this.client.user.id)
+            display += ' (You)';
 
         return display;
     }
