@@ -1,5 +1,6 @@
 import * as gi from 'azure-devops-node-api/interfaces/GitInterfaces';
-import { join } from 'node:path';
+import { IdentityRef } from 'azure-devops-node-api/interfaces/common/VSSInterfaces';
+import * as path from 'node:path';
 import * as vsc from 'vscode';
 import { AzureClient, getClient } from './client';
 import { ConfigurationManager } from './config';
@@ -7,9 +8,6 @@ import * as C from './constants';
 import { GitHandler } from './git-utils';
 import { log, logException } from './logs';
 import { StatusBarHandler } from './status-bar';
-import path = require('node:path');
-import { Identity } from 'azure-devops-node-api/interfaces/IdentitiesInterfaces';
-import { IdentityRef } from 'azure-devops-node-api/interfaces/common/VSSInterfaces';
 
 class MyComment implements vsc.Comment {
     constructor(
@@ -425,7 +423,10 @@ export class ExtensionController {
 
     private toUri(filePath: string): vsc.Uri {
         return vsc.Uri.file(
-            join(this.gitHandler.repositoryRoot, filePath.replace(/^\//, '')),
+            path.join(
+                this.gitHandler.repositoryRoot,
+                filePath.replace(/^\//, ''),
+            ),
         );
     }
 }
