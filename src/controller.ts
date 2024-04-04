@@ -1,5 +1,6 @@
 import * as gi from 'azure-devops-node-api/interfaces/GitInterfaces';
 import { IdentityRef } from 'azure-devops-node-api/interfaces/common/VSSInterfaces';
+import debounce from 'lodash-es/debounce';
 import * as path from 'node:path';
 import * as vsc from 'vscode';
 import { AzureClient, getClient } from './client';
@@ -35,9 +36,9 @@ export class ExtensionController {
     private lastBranch: string | null = null;
     private pullRequest: gi.GitPullRequest | null = null;
     private commentController: vsc.CommentController;
-    private allComments: vsc.CommentThread[] = [];
     private client: AzureClient;
     private fsWatcher: vsc.FileSystemWatcher;
+    private threads: vsc.CommentThread[] = [];
 
     constructor(
         private gitHandler: GitHandler,
@@ -73,6 +74,7 @@ export class ExtensionController {
                 }
             },
         };
+        // TODO add reaction handler to comment controller to handle like
 
         context.subscriptions.push(
             this.commentController,
@@ -120,10 +122,10 @@ export class ExtensionController {
             new vsc.RelativePattern(vsc.Uri.file(repo), '.git/HEAD'),
         );
 
-        const branchChangeCallback = async () => {
+        const branchChangeCallback = debounce(async () => {
             const currentBranch = await this.gitHandler.getCurrentBranch();
             if (currentBranch) await this.redownload(currentBranch);
-        };
+        }, 1000);
 
         this.fsWatcher.onDidCreate(u => branchChangeCallback());
         this.fsWatcher.onDidChange(u => branchChangeCallback());
@@ -215,7 +217,7 @@ export class ExtensionController {
     ): string {
         const defaultName = 'Unknown user';
 
-        let display = undefined;
+        let display: string | undefined = undefined;
         if (user) {
             if (user === 'self') {
                 display = this.client.user.customDisplayName;
@@ -223,10 +225,13 @@ export class ExtensionController {
                 display = user.displayName;
             }
         }
-        if (!display) display = defaultName;
+        if (!display) {
+            display = defaultName;
+        }
 
-        if (user === 'self' || user.id === this.client.user.id)
+        if (user === 'self' || user.id === this.client.user.id) {
             display += ' (You)';
+        }
 
         return display;
     }
@@ -234,6 +239,8 @@ export class ExtensionController {
     private async redownload(currentBranch: string) {
         this.lastBranch = currentBranch;
         this.pullRequest = await this.client.loadPullRequest(this.lastBranch!);
+
+        this.clearComments();
 
         if (this.pullRequest) {
             log(`Downloaded PR ${this.pullRequest.pullRequestId!}`);
@@ -252,14 +259,12 @@ export class ExtensionController {
 
         log(`Downloaded ${threads.length} threads.`);
 
-        this.clearComments();
-
-        this.allComments = [];
-
         for (const t of threads) {
             if (this.validThread(t)) {
                 const vscThread = await this.createVscodeThread(t);
-                if (vscThread) this.allComments.push(vscThread);
+                if (vscThread) {
+                    this.threads.push(vscThread);
+                }
             }
         }
     }
@@ -402,7 +407,8 @@ export class ExtensionController {
     }
 
     private clearComments() {
-        this.allComments.forEach(c => c.dispose());
+        this.threads.forEach(t => t.dispose());
+        this.threads = [];
     }
 
     private validThread(thread: gi.GitPullRequestCommentThread): boolean {
