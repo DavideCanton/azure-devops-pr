@@ -316,9 +316,7 @@ export class ExtensionController {
         const prId = this.pullRequest?.pullRequestId;
         if (!prId) return;
 
-        const uri = vsc.Uri.parse(
-            this.configManager._configuration.buildPullRequestId(prId),
-        );
+        const uri = this.configManager.configuration.buildPullRequestUrl(prId);
         vsc.env.openExternal(uri);
     }
 

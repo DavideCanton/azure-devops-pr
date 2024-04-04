@@ -37,14 +37,16 @@ export class Configuration {
         return buildUri(this.azureOrigin, this.organizationName);
     }
 
-    buildPullRequestId(pullRequestId: number): string {
-        return buildUri(
-            this.organizationUrl,
-            this.projectName,
-            '_git',
-            this.repositoryName,
-            'pullrequest',
-            pullRequestId.toString(),
+    buildPullRequestUrl(pullRequestId: number): vsc.Uri {
+        return vsc.Uri.parse(
+            buildUri(
+                this.organizationUrl,
+                this.projectName,
+                '_git',
+                this.repositoryName,
+                'pullrequest',
+                pullRequestId.toString(),
+            ),
         );
     }
 
