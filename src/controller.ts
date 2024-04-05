@@ -65,15 +65,7 @@ export class ExtensionController {
             'Comment Controller',
         );
         // A `CommentingRangeProvider` controls where gutter decorations that allow adding comments are shown
-        this.commentController.commentingRangeProvider = {
-            provideCommentingRanges: (document, token) => {
-                if (document.uri.scheme === 'file') {
-                    return [new vsc.Range(0, 0, document.lineCount, 1)];
-                } else {
-                    return undefined;
-                }
-            },
-        };
+        this.updateCommentingProviderRange();
         // TODO add reaction handler to comment controller to handle like
 
         context.subscriptions.push(
@@ -113,6 +105,22 @@ export class ExtensionController {
     }
 
     deactivate() {}
+
+    private updateCommentingProviderRange() {
+        if (this.pullRequest) {
+            this.commentController.commentingRangeProvider = {
+                provideCommentingRanges: (document, token) => {
+                    if (document.uri.scheme === 'file') {
+                        return [new vsc.Range(0, 0, document.lineCount, 1)];
+                    } else {
+                        return undefined;
+                    }
+                },
+            };
+        } else {
+            this.commentController.commentingRangeProvider = undefined;
+        }
+    }
 
     private setupMonitor(context: vsc.ExtensionContext) {
         const repo = this.gitHandler.repositoryRoot;
@@ -243,6 +251,7 @@ export class ExtensionController {
         this.pullRequest = await this.client.loadPullRequest(this.lastBranch!);
 
         this.clearComments();
+        this.updateCommentingProviderRange();
 
         if (this.pullRequest) {
             log(`Downloaded PR ${this.pullRequest.pullRequestId!}`);
