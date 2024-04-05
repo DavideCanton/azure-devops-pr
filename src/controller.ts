@@ -189,6 +189,8 @@ export class ExtensionController {
                 gi.CommentThreadStatus[
                     gi.CommentThreadStatus.Active
                 ].toString();
+            // register the new thread among the threads to be disposed if reloading
+            this.threads.push(thread);
         } else {
             const lastComment = thread.comments[
                 thread.comments.length - 1
