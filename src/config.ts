@@ -1,6 +1,6 @@
 import * as vsc from 'vscode';
 import { EXT_ID } from './constants';
-import { log } from './logs';
+import { log, logException } from './logs';
 import { buildUri } from './utils';
 
 /**
@@ -77,7 +77,7 @@ function requireKey<S extends keyof Settings>(
 
 export class ConfigurationManager implements vsc.Disposable {
     _configuration: Configuration;
-    private _configChanged = new vsc.EventEmitter<Configuration>();
+    private _configChanged = new vsc.EventEmitter<Configuration | null>();
 
     get configuration(): Configuration {
         return this._configuration;
@@ -87,15 +87,20 @@ export class ConfigurationManager implements vsc.Disposable {
         this._loadConfiguration();
     }
 
-    get onConfigChanged(): vsc.Event<Configuration> {
+    get onConfigChanged(): vsc.Event<Configuration | null> {
         return this._configChanged.event;
     }
 
-    emitChangedConfig(e: vsc.ConfigurationChangeEvent): void {
-        if (e.affectsConfiguration('azure-devops-pr')) {
+    emitChangedConfig(event: vsc.ConfigurationChangeEvent): void {
+        if (event.affectsConfiguration(EXT_ID)) {
             log('Configuration changed, reloading...');
-            this._loadConfiguration();
-            this._configChanged.fire(this._configuration);
+            try {
+                this._loadConfiguration();
+                this._configChanged.fire(this._configuration);
+            } catch (e) {
+                logException(e as Error);
+                this._configChanged.fire(null);
+            }
         }
     }
 
