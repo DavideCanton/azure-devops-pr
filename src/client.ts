@@ -54,7 +54,9 @@ class AzureRealClient implements AzureClient {
     }
 
     get gitClient(): gitApi.IGitApi {
-        if (this._gitClient) return this._gitClient;
+        if (this._gitClient) {
+            return this._gitClient;
+        }
 
         throw new Error('Activate not called');
     }

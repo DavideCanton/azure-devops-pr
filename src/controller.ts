@@ -1,49 +1,27 @@
 import * as gi from 'azure-devops-node-api/interfaces/GitInterfaces';
-import { IdentityRef } from 'azure-devops-node-api/interfaces/common/VSSInterfaces';
-import debounce from 'lodash-es/debounce';
-import * as path from 'node:path';
 import * as vsc from 'vscode';
 import { AzureClient, getClient } from './client';
 import { ConfigurationManager } from './config';
 import * as C from './constants';
 import {
-    BranchChangeDetector,
     BranchChangeDetectorFactory,
     GitInterface,
     GitInterfaceFactory,
 } from './git-utils';
 import { log, logException } from './logs';
 import { StatusBarHandler } from './status-bar';
-
-class MyComment implements vsc.Comment {
-    constructor(
-        public body: string | vsc.MarkdownString,
-        public mode: vsc.CommentMode,
-        public author: vsc.CommentAuthorInformation,
-        public azureThread: gi.CommentThread,
-        public azureComment?: gi.Comment,
-        public reactions?: vsc.CommentReaction[],
-        public contextValue?: string,
-        public label?: string,
-        public timestamp?: Date,
-    ) {}
-}
-
-const RESOLVED_STATUSES: readonly gi.CommentThreadStatus[] = [
-    gi.CommentThreadStatus.ByDesign,
-    gi.CommentThreadStatus.Closed,
-    gi.CommentThreadStatus.Fixed,
-    gi.CommentThreadStatus.WontFix,
-];
+import { CommentHandler, CommentHandlerFactory } from './comment-handler';
+import { toPosition, toUri } from './utils';
 
 export class ExtensionController {
     private statusBarHandler: StatusBarHandler;
     private pullRequest: gi.GitPullRequest | null = null;
-    private commentController: vsc.CommentController;
     private client: AzureClient;
-    private threads: vsc.CommentThread[] = [];
+
     private git: GitInterface;
     private configManager: ConfigurationManager;
+
+    private commentHandler: CommentHandler;
 
     private constructor() {}
 
@@ -51,6 +29,7 @@ export class ExtensionController {
         context: vsc.ExtensionContext,
         gitHandlerFactory: GitInterfaceFactory,
         branchChangeDetectorFactory: BranchChangeDetectorFactory,
+        createCommentHandler: CommentHandlerFactory,
         configManager: ConfigurationManager,
     ): Promise<ExtensionController> {
         const ctrl = new ExtensionController();
@@ -67,47 +46,13 @@ export class ExtensionController {
         }
 
         ctrl.statusBarHandler = new StatusBarHandler();
-
-        ctrl.commentController = vsc.comments.createCommentController(
-            C.COMMENT_CONTROLLER_ID,
-            'Comment Controller',
-        );
-        // A `CommentingRangeProvider` controls where gutter decorations that allow adding comments are shown
-        ctrl.updateCommentingProviderRange();
-        // TODO add reaction handler to comment controller to handle like
-
-        context.subscriptions.push(
-            ctrl.commentController,
-            ctrl.configManager,
-            vsc.commands.registerCommand(C.REFRESH_CMD, async () =>
-                ctrl.load(),
-            ),
-            vsc.commands.registerCommand(
-                C.OPEN_FILE_CMD,
-                async (filePath, start, end) =>
-                    ctrl.openFile(filePath, start, end),
-            ),
-            vsc.commands.registerCommand(C.OPEN_PR_CMD, async () =>
-                ctrl.openPR(),
-            ),
-            vsc.commands.registerCommand(
-                C.CREATE_THREAD_CMD,
-                async (reply: vsc.CommentReply) => ctrl.createComment(reply),
-            ),
-            vsc.commands.registerCommand(
-                C.REPLY_CMD,
-                async (reply: vsc.CommentReply) => ctrl.createComment(reply),
-            ),
-            vsc.workspace.onDidChangeConfiguration(e => {
-                ctrl.configManager.emitChangedConfig(e);
-            }),
-        );
+        ctrl.commentHandler = createCommentHandler();
 
         ctrl.configManager.onConfigChanged(() => {
-            ctrl.load(true);
+            ctrl.loadClientAndPR(true);
         });
 
-        await ctrl.load();
+        await ctrl.loadClientAndPR();
 
         const branchDetector = branchChangeDetectorFactory(ctrl.git);
         branchDetector.activateDetection();
@@ -117,138 +62,61 @@ export class ExtensionController {
             }
         });
 
-        context.subscriptions.push(branchDetector);
+        context.subscriptions.push(
+            ctrl.commentHandler,
+            ctrl.configManager,
+            branchDetector,
+            vsc.commands.registerCommand(C.REFRESH_CMD, async () =>
+                ctrl.loadClientAndPR(),
+            ),
+            vsc.commands.registerCommand(
+                C.OPEN_FILE_CMD,
+                async (filePath, start, end) =>
+                    ctrl.openFile(filePath, start, end),
+            ),
+            vsc.commands.registerCommand(C.OPEN_PR_CMD, async () =>
+                ctrl.openPR(),
+            ),
+            vsc.commands.registerCommand(C.CREATE_THREAD_CMD, reply =>
+                ctrl.createThreadWithComment(reply),
+            ),
+            vsc.commands.registerCommand(C.REPLY_CMD, reply =>
+                ctrl.replyToThread(reply),
+            ),
+            vsc.workspace.onDidChangeConfiguration(e => {
+                ctrl.configManager.emitChangedConfig(e);
+            }),
+        );
 
         return ctrl;
     }
 
     deactivate() {}
 
-    private updateCommentingProviderRange() {
-        if (this.pullRequest) {
-            this.commentController.commentingRangeProvider = {
-                provideCommentingRanges: (document, token) => {
-                    if (document.uri.scheme === 'file') {
-                        return [new vsc.Range(0, 0, document.lineCount, 1)];
-                    } else {
-                        return undefined;
-                    }
-                },
-            };
-        } else {
-            this.commentController.commentingRangeProvider = undefined;
-        }
+    private async createThreadWithComment(
+        reply: vsc.CommentReply,
+    ): Promise<void> {
+        await this.commentHandler.createThreadWithComment(
+            reply,
+            this.pullRequest!.pullRequestId!,
+            this.git.repositoryRoot,
+            this.client,
+        );
     }
 
-    private async createComment(reply: vsc.CommentReply) {
-        const thread = reply.thread;
-        const pullRequestId = this.pullRequest!.pullRequestId!;
-
-        let comment: MyComment;
-
-        if (!thread.comments.length) {
-            const line = reply.thread.range.start.line;
-            const editor = vsc.window.visibleTextEditors.find(
-                e => e.document.uri.scheme === 'file',
-            );
-            if (!editor) {
-                vsc.window.showErrorMessage('Cannot create comment');
-                return;
-            }
-            const lineLength =
-                editor.document.lineAt(line).range.end.character + 1;
-
-            const rel = path.relative(
-                this.git.repositoryRoot,
-                reply.thread.uri.fsPath,
-            );
-            let filePath;
-            if (process.platform === 'win32') {
-                filePath = path.posix.join(...rel.split(path.win32.sep));
-            } else {
-                filePath = rel;
-            }
-
-            const azureThread = await this.client.createThread(
-                pullRequestId,
-                reply.text,
-                {
-                    filePath: '/' + filePath,
-                    rightFileStart: {
-                        line: line + 1,
-                        offset: 1,
-                    },
-                    rightFileEnd: {
-                        line: line + 1,
-                        offset: lineLength,
-                    },
-                },
-            );
-            comment = new MyComment(
-                new vsc.MarkdownString(reply.text),
-                vsc.CommentMode.Preview,
-                { name: this.formatAuthor() },
-                azureThread,
-                azureThread.comments![0],
-            );
-            thread.label =
-                gi.CommentThreadStatus[
-                    gi.CommentThreadStatus.Active
-                ].toString();
-            // register the new thread among the threads to be disposed if reloading
-            this.threads.push(thread);
-        } else {
-            const lastComment = thread.comments[
-                thread.comments.length - 1
-            ] as MyComment;
-            const azureThread = lastComment.azureThread!;
-            const createdComment = await this.client.comment(
-                reply.text,
-                pullRequestId,
-                azureThread.id!,
-                lastComment.azureComment!.id!,
-            );
-            comment = new MyComment(
-                new vsc.MarkdownString(reply.text),
-                vsc.CommentMode.Preview,
-                { name: this.formatAuthor() },
-                azureThread,
-                createdComment,
-            );
-        }
-
-        thread.comments = [...thread.comments, comment];
-    }
-
-    private formatAuthor(
-        user: IdentityRef | undefined | 'self' = 'self',
-    ): string {
-        const defaultName = 'Unknown user';
-
-        let display: string | undefined = undefined;
-        if (user) {
-            if (user === 'self') {
-                display = this.client.user.customDisplayName;
-            } else if ('displayName' in user) {
-                display = user.displayName;
-            }
-        }
-        if (!display) {
-            display = defaultName;
-        }
-
-        if (user === 'self' || user.id === this.client.user.id) {
-            display += ' (You)';
-        }
-
-        return display;
+    private async replyToThread(reply: vsc.CommentReply): Promise<void> {
+        await this.commentHandler.replyToThread(
+            reply,
+            this.pullRequest!.pullRequestId!,
+            this.client,
+        );
     }
 
     private async downloadPR(currentBranch: string) {
         this.pullRequest = await this.client.loadPullRequest(currentBranch);
 
-        this.clearComments();
-        this.updateCommentingProviderRange();
+        this.commentHandler.clearComments();
+        this.commentHandler.updateCommentingProviderRange(!!this.pullRequest);
 
         if (this.pullRequest) {
             log(`Downloaded PR ${this.pullRequest.pullRequestId!}`);
@@ -267,23 +135,22 @@ export class ExtensionController {
 
         log(`Downloaded ${threads.length} threads.`);
 
-        for (const t of threads) {
-            if (this.validThread(t)) {
-                const vscThread = await this.createVscodeThread(t);
-                if (vscThread) {
-                    this.threads.push(vscThread);
-                }
-            }
+        for (const thread of threads) {
+            await this.commentHandler.mapThread(
+                thread,
+                this.git.repositoryRoot,
+                this.client.user,
+            );
         }
     }
 
-    private async load(reloadClient = false) {
-        if (!this.client || reloadClient) {
+    private async loadClientAndPR(forceReloadClient: boolean = false) {
+        if (!this.client || forceReloadClient) {
             try {
                 this.client = getClient(this.configManager);
                 await this.client.activate();
             } catch (error) {
-                this.clearComments();
+                this.commentHandler.clearComments();
                 vsc.window.showErrorMessage(
                     'Error while initializing the extension',
                 );
@@ -301,7 +168,7 @@ export class ExtensionController {
             log(`Detected branch ${currentBranch}`);
             await this.downloadPR(currentBranch);
         } catch (error) {
-            this.clearComments();
+            this.commentHandler.clearComments();
             vsc.window.showErrorMessage('Error while downloading comments');
             logException(error as Error);
         }
@@ -313,12 +180,15 @@ export class ExtensionController {
         end: gi.CommentPosition,
     ) {
         try {
-            vsc.window.showTextDocument(this.toUri(filePath), {
-                selection: new vsc.Range(
-                    this.toPosition(start),
-                    this.toPosition(end),
-                ),
-            });
+            vsc.window.showTextDocument(
+                toUri(filePath, this.git.repositoryRoot),
+                {
+                    selection: new vsc.Range(
+                        toPosition(start),
+                        toPosition(end),
+                    ),
+                },
+            );
         } catch (error) {
             vsc.window.showErrorMessage('Error while displaying comments');
             logException(error as Error);
@@ -327,115 +197,11 @@ export class ExtensionController {
 
     private async openPR() {
         const prId = this.pullRequest?.pullRequestId;
-        if (!prId) return;
+        if (prId === undefined) {
+            return;
+        }
 
         const uri = this.configManager.configuration.buildPullRequestUrl(prId);
         vsc.env.openExternal(uri);
-    }
-
-    private async createVscodeThread(
-        thread: gi.GitPullRequestCommentThread,
-    ): Promise<vsc.CommentThread | null> {
-        const context = thread.threadContext!;
-
-        const comments: MyComment[] = [];
-
-        for (const comment of thread.comments ?? []) {
-            // TODO fix here
-            // const avatar = comment.author?._links.avatar.href;
-            // const iconPath = avatar ? (await this.client.getAvatar(avatar)) : undefined;
-
-            let reactions: vsc.CommentReaction[] | undefined = undefined;
-            if (comment.usersLiked) {
-                const likedByYou = comment.usersLiked.some(
-                    u => u.id === this.client.user.id,
-                );
-                const countOthers =
-                    comment.usersLiked.length - (likedByYou ? 1 : 0);
-
-                reactions = [];
-
-                if (likedByYou) {
-                    reactions.push({
-                        count: 1,
-                        label: 'Liked by you',
-                        authorHasReacted: true,
-                        iconPath: '',
-                    });
-                }
-                if (countOthers) {
-                    reactions.push({
-                        count: countOthers,
-                        label: 'Like',
-                        authorHasReacted: false,
-                        iconPath: '',
-                    });
-                }
-            }
-
-            let content = comment.content!;
-            content = content.replace(
-                /```suggestion/g,
-                '**Suggestion**:\n```suggestion',
-            );
-
-            comments.push(
-                new MyComment(
-                    new vsc.MarkdownString(content),
-                    vsc.CommentMode.Preview,
-                    {
-                        name: this.formatAuthor(comment.author),
-                    },
-                    thread,
-                    comment,
-                    reactions,
-                ),
-            );
-        }
-
-        // TODO filter out threads on files outside the current folder?
-        const ct = this.commentController.createCommentThread(
-            this.toUri(context.filePath!),
-            // TODO for now let's handle just threads on the right file
-            new vsc.Range(
-                this.toPosition(context.rightFileStart!),
-                this.toPosition(context.rightFileEnd!),
-            ),
-            comments,
-        );
-        ct.label = gi.CommentThreadStatus[thread.status!].toString();
-
-        if (thread.status && RESOLVED_STATUSES.includes(thread.status)) {
-            ct.state = vsc.CommentThreadState.Resolved;
-        } else {
-            ct.state = vsc.CommentThreadState.Unresolved;
-        }
-
-        return ct;
-    }
-
-    private clearComments() {
-        this.threads.forEach(t => t.dispose());
-        this.threads = [];
-    }
-
-    private validThread(thread: gi.GitPullRequestCommentThread): boolean {
-        return (
-            !!thread.threadContext &&
-            !!thread.threadContext.filePath &&
-            !!thread.threadContext.rightFileStart &&
-            !!thread.threadContext.rightFileEnd &&
-            !thread.isDeleted
-        );
-    }
-
-    private toPosition(cp: gi.CommentPosition): vsc.Position {
-        return new vsc.Position(cp.line! - 1, cp.offset! - 1);
-    }
-
-    private toUri(filePath: string): vsc.Uri {
-        return vsc.Uri.file(
-            path.join(this.git.repositoryRoot, filePath.replace(/^\//, '')),
-        );
     }
 }
