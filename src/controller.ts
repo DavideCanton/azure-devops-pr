@@ -6,7 +6,12 @@ import * as vsc from 'vscode';
 import { AzureClient, getClient } from './client';
 import { ConfigurationManager } from './config';
 import * as C from './constants';
-import { GitHandler } from './git-utils';
+import {
+    BranchChangeDetector,
+    BranchChangeDetectorFactory,
+    GitInterface,
+    GitInterfaceFactory,
+} from './git-utils';
 import { log, logException } from './logs';
 import { StatusBarHandler } from './status-bar';
 
@@ -33,75 +38,88 @@ const RESOLVED_STATUSES: readonly gi.CommentThreadStatus[] = [
 
 export class ExtensionController {
     private statusBarHandler: StatusBarHandler;
-    private lastBranch: string | null = null;
     private pullRequest: gi.GitPullRequest | null = null;
     private commentController: vsc.CommentController;
     private client: AzureClient;
-    private fsWatcher: vsc.FileSystemWatcher;
     private threads: vsc.CommentThread[] = [];
+    private git: GitInterface;
+    private configManager: ConfigurationManager;
 
-    constructor(
-        private gitHandler: GitHandler,
-        private configManager: ConfigurationManager,
-    ) {}
+    private constructor() {}
 
-    async activate(context: vsc.ExtensionContext) {
-        if (!(await this.gitHandler.load())) {
-            vsc.window.showErrorMessage('No git repository found');
-            return;
-        }
+    static async create(
+        context: vsc.ExtensionContext,
+        gitHandlerFactory: GitInterfaceFactory,
+        branchChangeDetectorFactory: BranchChangeDetectorFactory,
+        configManager: ConfigurationManager,
+    ): Promise<ExtensionController> {
+        const ctrl = new ExtensionController();
+
+        ctrl.git = await gitHandlerFactory(
+            vsc.workspace.workspaceFolders?.[0].uri.fsPath ?? null,
+        );
+        ctrl.configManager = configManager;
 
         try {
-            this.configManager.activate();
+            ctrl.configManager.activate();
         } catch (e) {
-            log('Cannot load configuration!');
-            logException(e as Error);
-            return;
+            throw new Error('Cannot load configuration!');
         }
-        this.statusBarHandler = new StatusBarHandler();
 
-        this.commentController = vsc.comments.createCommentController(
+        ctrl.statusBarHandler = new StatusBarHandler();
+
+        ctrl.commentController = vsc.comments.createCommentController(
             C.COMMENT_CONTROLLER_ID,
             'Comment Controller',
         );
         // A `CommentingRangeProvider` controls where gutter decorations that allow adding comments are shown
-        this.updateCommentingProviderRange();
+        ctrl.updateCommentingProviderRange();
         // TODO add reaction handler to comment controller to handle like
 
         context.subscriptions.push(
-            this.commentController,
-            this.configManager,
+            ctrl.commentController,
+            ctrl.configManager,
             vsc.commands.registerCommand(C.REFRESH_CMD, async () =>
-                this.load(),
+                ctrl.load(),
             ),
             vsc.commands.registerCommand(
                 C.OPEN_FILE_CMD,
                 async (filePath, start, end) =>
-                    this.openFile(filePath, start, end),
+                    ctrl.openFile(filePath, start, end),
             ),
             vsc.commands.registerCommand(C.OPEN_PR_CMD, async () =>
-                this.openPR(),
+                ctrl.openPR(),
             ),
             vsc.commands.registerCommand(
                 C.CREATE_THREAD_CMD,
-                async (reply: vsc.CommentReply) => this.createComment(reply),
+                async (reply: vsc.CommentReply) => ctrl.createComment(reply),
             ),
             vsc.commands.registerCommand(
                 C.REPLY_CMD,
-                async (reply: vsc.CommentReply) => this.createComment(reply),
+                async (reply: vsc.CommentReply) => ctrl.createComment(reply),
             ),
             vsc.workspace.onDidChangeConfiguration(e => {
-                this.configManager.emitChangedConfig(e);
+                ctrl.configManager.emitChangedConfig(e);
             }),
         );
 
-        this.configManager.onConfigChanged(() => {
-            this.load(true);
+        ctrl.configManager.onConfigChanged(() => {
+            ctrl.load(true);
         });
 
-        await this.load();
+        await ctrl.load();
 
-        this.setupMonitor(context);
+        const branchDetector = branchChangeDetectorFactory(ctrl.git);
+        branchDetector.activateDetection();
+        branchDetector.branchChanged(async b => {
+            if (b) {
+                await ctrl.downloadPR(b);
+            }
+        });
+
+        context.subscriptions.push(branchDetector);
+
+        return ctrl;
     }
 
     deactivate() {}
@@ -120,26 +138,6 @@ export class ExtensionController {
         } else {
             this.commentController.commentingRangeProvider = undefined;
         }
-    }
-
-    private setupMonitor(context: vsc.ExtensionContext) {
-        const repo = this.gitHandler.repositoryRoot;
-
-        // TODO this does not work with worktrees
-        this.fsWatcher = vsc.workspace.createFileSystemWatcher(
-            new vsc.RelativePattern(vsc.Uri.file(repo), '.git/HEAD'),
-        );
-
-        const branchChangeCallback = debounce(async () => {
-            const currentBranch = await this.gitHandler.getCurrentBranch();
-            if (currentBranch) await this.redownload(currentBranch);
-        }, 1000);
-
-        this.fsWatcher.onDidCreate(u => branchChangeCallback());
-        this.fsWatcher.onDidChange(u => branchChangeCallback());
-        this.fsWatcher.onDidDelete(u => branchChangeCallback());
-
-        context.subscriptions.push(this.fsWatcher);
     }
 
     private async createComment(reply: vsc.CommentReply) {
@@ -161,7 +159,7 @@ export class ExtensionController {
                 editor.document.lineAt(line).range.end.character + 1;
 
             const rel = path.relative(
-                this.gitHandler.repositoryRoot,
+                this.git.repositoryRoot,
                 reply.thread.uri.fsPath,
             );
             let filePath;
@@ -246,9 +244,8 @@ export class ExtensionController {
         return display;
     }
 
-    private async redownload(currentBranch: string) {
-        this.lastBranch = currentBranch;
-        this.pullRequest = await this.client.loadPullRequest(this.lastBranch!);
+    private async downloadPR(currentBranch: string) {
+        this.pullRequest = await this.client.loadPullRequest(currentBranch);
 
         this.clearComments();
         this.updateCommentingProviderRange();
@@ -296,13 +293,13 @@ export class ExtensionController {
         }
 
         try {
-            const currentBranch = await this.gitHandler.getCurrentBranch();
+            const currentBranch = await this.git.getCurrentBranch();
             if (!currentBranch) {
                 vsc.window.showErrorMessage('Cannot detect current branch!');
                 return;
             }
             log(`Detected branch ${currentBranch}`);
-            await this.redownload(currentBranch);
+            await this.downloadPR(currentBranch);
         } catch (error) {
             this.clearComments();
             vsc.window.showErrorMessage('Error while downloading comments');
@@ -438,10 +435,7 @@ export class ExtensionController {
 
     private toUri(filePath: string): vsc.Uri {
         return vsc.Uri.file(
-            path.join(
-                this.gitHandler.repositoryRoot,
-                filePath.replace(/^\//, ''),
-            ),
+            path.join(this.git.repositoryRoot, filePath.replace(/^\//, '')),
         );
     }
 }
