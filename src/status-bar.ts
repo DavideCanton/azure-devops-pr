@@ -12,12 +12,11 @@ export class StatusBarHandler {
 
     displayPR(prId: number | null = null) {
         if (prId !== null) {
-            this.statusBarItem.text = `$(git-pull-request) PR: #${prId}`;
+            this.statusBarItem.text = `$(git-pull-request) ${prId}`;
             this.statusBarItem.command = C.OPEN_PR_CMD;
+            this.statusBarItem.show();
         } else {
-            this.statusBarItem.text = `$(git-pull-request) No PR`;
-            this.statusBarItem.command = undefined;
+            this.statusBarItem.hide();
         }
-        this.statusBarItem.show();
     }
 }
