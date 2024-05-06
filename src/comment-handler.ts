@@ -8,25 +8,58 @@ import { AzureClient } from './client';
 import { Identity } from 'azure-devops-node-api/interfaces/IdentitiesInterfaces';
 import last from 'lodash-es/last';
 
+/**
+ * Interface for handling comment threads.
+ */
 export interface CommentHandler extends vs.Disposable {
+    /**
+     * Maps a pull request comment thread to a VS Code comment thread.
+     * @param thread The thread to map.
+     * @param repoRoot The root of the repository.
+     * @param currentUser The currently logged in user.
+     * @returns The VS Code comment thread or null if the thread is not valid.
+     */
     mapThread(
         thread: gi.GitPullRequestCommentThread,
         repoRoot: string,
         currentUser: Identity,
     ): Promise<vs.CommentThread | null>;
 
+    /**
+     * Updates the commenting range provider's range.
+     * @param hasPrActive Whether or not a pull request is active.
+     */
     updateCommentingProviderRange(hasPrActive: boolean): void;
+
+    /**
+     * Creates a new comment thread with a comment.
+     * @param reply The comment reply.
+     * @param pullRequestId The pull request ID.
+     * @param repoRoot The root of the repository.
+     * @param client The Azure DevOps client.
+     */
     createThreadWithComment(
         reply: vs.CommentReply,
         pullRequestId: number,
         repoRoot: string,
         client: AzureClient,
     ): Promise<void>;
+
+    /**
+     * Replies to a comment thread.
+     * @param reply The comment reply.
+     * @param pullRequestId The pull request ID.
+     * @param client The Azure DevOps client.
+     */
     replyToThread(
         reply: vs.CommentReply,
         pullRequestId: number,
         client: AzureClient,
     ): Promise<void>;
+
+    /**
+     * Clears all comment threads.
+     */
     clearComments(): void;
 }
 
@@ -49,6 +82,17 @@ class CommentImpl implements vs.Comment {
         public readonly timestamp?: Date,
     ) {}
 
+    /**
+     * Creates a new comment instance with the given content, current user, Azure thread, Azure comment, and optional reactions.
+     *
+     * @param {string} content - The content of the comment.
+     * @param {Identity} currentUser - The current user creating the comment.
+     * @param {gi.CommentThread} azureThread - The Azure comment thread associated with the comment.
+     * @param {gi.Comment} azureComment - The Azure comment associated with the comment.
+     * @param {vs.CommentReaction[]} [reactions] - Optional reactions for the comment.
+     * @param {IdentityRef | 'self'} [commentAuthor='self'] - The author of the comment. Defaults to 'self'.
+     * @return {CommentImpl} The newly created comment instance.
+     */
     static createComment(
         content: string,
         currentUser: Identity,
@@ -67,6 +111,15 @@ class CommentImpl implements vs.Comment {
         );
     }
 
+    /**
+     * Formats the author name based on the current user and the provided user.
+     *
+     * Adds '(You)' if the author is the current user.
+     *
+     * @param {Identity} currentUser - The current user.
+     * @param {IdentityRef | undefined | 'self'} [user='self'] - The user to format the author name for. Defaults to 'self'.
+     * @return {string} The formatted author name.
+     */
     static formatAuthor(
         currentUser: Identity,
         user: IdentityRef | undefined | 'self' = 'self',

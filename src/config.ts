@@ -33,10 +33,21 @@ export class Configuration {
         public readonly token: string,
     ) {}
 
+    /**
+     * Returns the organization URL by concatenating the Azure origin and organization name.
+     *
+     * @return {string} The organization URL.
+     */
     get organizationUrl(): string {
         return buildUri(this.azureOrigin, this.organizationName);
     }
 
+    /**
+     * Builds a URI for a pull request URL based on the given pull request ID.
+     *
+     * @param {number} pullRequestId - The ID of the pull request.
+     * @return {vsc.Uri} The URI for the pull request.
+     */
     buildPullRequestUrl(pullRequestId: number): vsc.Uri {
         return vsc.Uri.parse(
             buildUri(
@@ -50,6 +61,12 @@ export class Configuration {
         );
     }
 
+    /**
+     * Creates a new Configuration object from the given Settings object.
+     *
+     * @param {Settings} settings - The Settings object containing the configuration data.
+     * @return {Configuration} The newly created `Configuration` object.
+     */
     static fromSettings(settings: Settings): Configuration {
         return new Configuration(
             requireKey(settings, 'organization-name'),
@@ -61,6 +78,14 @@ export class Configuration {
     }
 }
 
+/**
+ * Retrieves the value of a specific key from a settings object.
+ *
+ * @param {Settings} settings - The settings object to retrieve the key from.
+ * @param {S} name - The name of the key to retrieve.
+ * @return {Settings[S]} The value of the specified key.
+ * @throws {Error} If the key is missing in the settings object.
+ */
 function requireKey<S extends keyof Settings>(
     settings: Settings,
     name: S,
@@ -75,22 +100,49 @@ function requireKey<S extends keyof Settings>(
     }
 }
 
+/**
+ * Manages the extension's configuration.
+ *
+ * Provides access to the current configuration and emits an event when the configuration changes.
+ */
 export class ConfigurationManager implements vsc.Disposable {
     _configuration: Configuration;
     private _configChanged = new vsc.EventEmitter<Configuration | null>();
 
+    /**
+     * The current configuration.
+     */
     get configuration(): Configuration {
         return this._configuration;
     }
 
+    /**
+     * Activates the configuration manager.
+     *
+     * This method should be called when the extension is activated.
+     */
     activate() {
         this._loadConfiguration();
     }
 
+    /**
+     * An event that is emitted when the configuration changes.
+     *
+     * The event will be fired with the new configuration, or `null` if the configuration could not be loaded.
+     */
     get onConfigChanged(): vsc.Event<Configuration | null> {
         return this._configChanged.event;
     }
 
+    /**
+     * Emits a configuration change event.
+     *
+     * If the configuration change event affects the extension's configuration, the new configuration will be loaded and the
+     * event will be fired with the new configuration. If the configuration could not be loaded, the event will be fired with
+     * `null`.
+     *
+     * @param event The configuration change event.
+     */
     emitChangedConfig(event: vsc.ConfigurationChangeEvent): void {
         if (event.affectsConfiguration(EXT_ID)) {
             log('Configuration changed, reloading...');
@@ -104,6 +156,9 @@ export class ConfigurationManager implements vsc.Disposable {
         }
     }
 
+    /**
+     * Disposes the configuration manager.
+     */
     dispose() {
         this._configChanged.dispose();
     }

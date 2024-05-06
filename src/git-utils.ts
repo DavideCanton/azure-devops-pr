@@ -10,9 +10,7 @@ export interface GitInterface {
     getCurrentBranch(): Promise<string | null>;
 }
 
-export function createGitInterface(
-    folder: string | null,
-): Promise<GitInterface> {
+export function createGitInterface(folder: string): Promise<GitInterface> {
     return GitInterfaceImpl.load(folder);
 }
 
@@ -26,20 +24,31 @@ class GitInterfaceImpl implements GitInterface {
 
     private constructor() {}
 
+    /**
+     * The root directory of the Git repository.
+     * @readonly
+     */
     public get repositoryRoot(): string {
         return this._repositoryRoot;
     }
 
+    /**
+     * Sets the root directory of the Git repository.
+     * @internal
+     */
     private set repositoryRoot(value: string) {
         this._repositoryRoot = value;
     }
 
-    static async load(folder: string | null): Promise<GitInterfaceImpl> {
+    /**
+     * Loads the Git repository information.
+     *
+     * @param folder The path of the root folder of the Git repository.
+     * @returns A promise that resolves to the `GitInterfaceImpl` instance.
+     * @throws {Error} If the specified folder is not a Git repository.
+     */
+    static async load(folder: string): Promise<GitInterfaceImpl> {
         const handler = new GitInterfaceImpl();
-
-        if (!folder) {
-            throw new Error('No folder opened');
-        }
 
         try {
             await lstat(folder);
@@ -59,6 +68,11 @@ class GitInterfaceImpl implements GitInterface {
         return handler;
     }
 
+    /**
+     * Gets the current branch name.
+     *
+     * @returns A promise that resolves to the branch name or null if the repository is in a detached HEAD state.
+     */
     async getCurrentBranch(): Promise<string | null> {
         try {
             return await this._runGitCommand('symbolic-ref', [
@@ -70,16 +84,23 @@ class GitInterfaceImpl implements GitInterface {
         }
     }
 
+    /**
+     * Runs a git command and returns its output as a string.
+     *
+     * @param command The git command to run.
+     * @param args The arguments to pass to the command.
+     * @param cwd The directory to run the command in. If not specified, the repository root is used.
+     * @returns A promise that resolves to the output of the command. If the command fails, the promise is rejected
+     * with the error message.
+     */
     private async _runGitCommand(
         command: string,
         args: string[],
-        cwd?: string,
+        cwd: string = this.repositoryRoot,
     ): Promise<string> {
         log(`Running git command: ${command} ${args.join(' ')}`);
 
-        const res = spawn('git', [command, ...args], {
-            cwd: cwd ?? this.repositoryRoot,
-        });
+        const res = spawn('git', [command, ...args], { cwd });
 
         return new Promise((resolve, reject) => {
             const out: Buffer[] = [];
@@ -104,32 +125,55 @@ class GitInterfaceImpl implements GitInterface {
     }
 }
 
+/**
+ * An interface for detecting changes in the current branch.
+ */
 export interface BranchChangeDetector extends vs.Disposable {
+    /**
+     * An event that is fired when the current branch changes. The event is fired with the new branch (or `null`
+     * if no branch is active).
+     */
     readonly branchChanged: vs.Event<string | null>;
+
+    /**
+     * Starts detecting changes in the current branch. The promise is resolved when the detection is
+     * activated.
+     */
     activateDetection(): Promise<void>;
 }
 
-export function createBranchChangeDetector(
-    git: GitInterface,
-): BranchChangeDetector {
-    return new FsWatcherBranchChangeDetectorImpl(git);
-}
-
+/**
+ * A function that creates a {@link BranchChangeDetector}.
+ */
 export type BranchChangeDetectorFactory = typeof createBranchChangeDetector;
 
+/**
+ * A class that detects changes in the current branch using the file system watcher.
+ */
 class FsWatcherBranchChangeDetectorImpl
-    implements BranchChangeDetector, vs.Disposable
-{
+    implements BranchChangeDetector, vs.Disposable {
+    /**
+     * {@inheritdoc BranchChangeDetector.branchChanged}
+     */
     readonly branchChanged: vs.Event<string | null>;
+
     private fsWatcher: vs.FileSystemWatcher | null = null;
 
     private branchChangedEmitter: vs.EventEmitter<string | null>;
 
+    /**
+     * Creates a new instance of {@link FsWatcherBranchChangeDetectorImpl}.
+     *
+     * @param git The Git interface to use for getting the current branch.
+     */
     constructor(private git: GitInterface) {
         this.branchChangedEmitter = new vs.EventEmitter();
         this.branchChanged = this.branchChangedEmitter.event;
     }
 
+    /**
+     * {@inheritdoc BranchChangeDetector.activateDetection}
+     */
     async activateDetection(): Promise<void> {
         const repo = this.git.repositoryRoot;
 
@@ -145,6 +189,9 @@ class FsWatcherBranchChangeDetectorImpl
         this.fsWatcher.onDidDelete(branchChangeCallback);
     }
 
+    /**
+     * {@inheritdoc vs.Disposable.dispose}
+     */
     dispose() {
         this.fsWatcher?.dispose();
         this.branchChangedEmitter.dispose();
@@ -157,3 +204,17 @@ class FsWatcherBranchChangeDetectorImpl
         }, 1000);
     }
 }
+
+/**
+ * Creates a new {@link BranchChangeDetector} that uses the file system watcher to detect changes in the
+ * current branch.
+ *
+ * @param git The Git interface to use for getting the current branch.
+ * @returns A new {@link BranchChangeDetector}.
+ */
+export function createBranchChangeDetector(
+    git: GitInterface,
+): BranchChangeDetector {
+    return new FsWatcherBranchChangeDetectorImpl(git);
+}
+

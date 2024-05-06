@@ -34,9 +34,12 @@ export class ExtensionController {
     ): Promise<ExtensionController> {
         const ctrl = new ExtensionController();
 
-        ctrl.git = await gitHandlerFactory(
-            vsc.workspace.workspaceFolders?.[0].uri.fsPath ?? null,
-        );
+        const folder = vsc.workspace.workspaceFolders?.[0].uri.fsPath;
+        if (!folder) {
+            throw new Error('No folder opened');
+        }
+
+        ctrl.git = await gitHandlerFactory(folder);
         ctrl.configManager = configManager;
 
         try {
