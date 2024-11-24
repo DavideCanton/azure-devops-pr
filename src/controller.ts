@@ -128,7 +128,7 @@ export class ExtensionController {
         }
 
         const prId = this.pullRequest?.pullRequestId ?? null;
-        this.statusBarHandler.displayPR(prId);
+        this.statusBarHandler.displayPR(this.pullRequest!);
 
         if (prId === null) {
             return;
