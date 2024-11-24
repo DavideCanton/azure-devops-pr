@@ -15,7 +15,7 @@ const config = env => {
         target: 'node', // webworker if browser is to support
         entry: {
             extension: './src/extension.ts',
-            ...(isDev ? { tests: glob.sync('./src/tests/**/*.test.ts') } : {}),
+            // ...(isDev ? { tests: glob.sync('./src/tests/**/*.test.ts') } : {}),
         },
         output: {
             path: path.resolve(__dirname, 'out'),

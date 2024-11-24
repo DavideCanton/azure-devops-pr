@@ -63,7 +63,10 @@ export interface AzureClient {
     ): Promise<gi.GitPullRequestCommentThread>;
 }
 
-export function getClient(cm: ConfigurationManager): AzureClient {
+export async function getClient(cm: ConfigurationManager): Promise<AzureClient> {
+    if (DEV_MODE) {
+        return import('./mocks/client').then(m => m.getClient(cm));
+    }
     return new AzureRealClient(cm);
 }
 

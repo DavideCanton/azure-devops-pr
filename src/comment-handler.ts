@@ -3,7 +3,7 @@ import { IdentityRef } from 'azure-devops-node-api/interfaces/common/VSSInterfac
 import * as path from 'node:path';
 import * as vs from 'vscode';
 import { COMMENT_CONTROLLER_ID } from './constants';
-import { toPosition, toUri } from './utils';
+import { toVsPosition, toUri, toGiPosition } from './utils';
 import { AzureClient } from './client';
 import { Identity } from 'azure-devops-node-api/interfaces/IdentitiesInterfaces';
 import last from 'lodash-es/last';
@@ -242,8 +242,8 @@ class CommentHandlerImpl implements CommentHandler {
             toUri(context.filePath!, repoRoot),
             // TODO for now let's handle just threads on the right file
             new vs.Range(
-                toPosition(context.rightFileStart!),
-                toPosition(context.rightFileEnd!),
+                toVsPosition(context.rightFileStart!),
+                toVsPosition(context.rightFileEnd!),
             ),
             comments,
         );
@@ -288,15 +288,27 @@ class CommentHandlerImpl implements CommentHandler {
     ): Promise<void> {
         const thread = reply.thread;
 
-        const line = thread.range.start.line;
-        const editor = vs.window.visibleTextEditors.find(
-            e => e.document.uri.scheme === 'file',
-        );
-        if (!editor) {
-            vs.window.showErrorMessage('Cannot create comment');
-            return;
+        let start: gi.CommentPosition;
+        let end: gi.CommentPosition;
+
+        if (thread.range.isEmpty) {
+            // empty ranges add a comment to the line of the range
+            const editor = vs.window.visibleTextEditors.find(
+                e => e.document.uri.scheme === 'file',
+            );
+            if (!editor) {
+                // should never happen since comments are added to a visible editor
+                vs.window.showErrorMessage('Cannot create comment');
+                return;
+            }
+            start = toGiPosition(new vs.Position(thread.range.start.line, 0));
+            end = toGiPosition(
+                editor.document.lineAt(thread.range.end.line).range.end,
+            );
+        } else {
+            start = toGiPosition(thread.range.start);
+            end = toGiPosition(thread.range.end);
         }
-        const lineLength = editor.document.lineAt(line).range.end.character + 1;
 
         const rel = path.relative(repoRoot, thread.uri.fsPath);
         let filePath;
@@ -310,15 +322,9 @@ class CommentHandlerImpl implements CommentHandler {
             pullRequestId,
             reply.text,
             {
-                filePath: '/' + filePath,
-                rightFileStart: {
-                    line: line + 1,
-                    offset: 1,
-                },
-                rightFileEnd: {
-                    line: line + 1,
-                    offset: lineLength,
-                },
+                filePath: `/${filePath}`,
+                rightFileStart: start,
+                rightFileEnd: end,
             },
         );
         const comment = CommentImpl.createComment(

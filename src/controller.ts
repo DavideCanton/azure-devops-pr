@@ -11,7 +11,7 @@ import {
 import { log, logException } from './logs';
 import { StatusBarHandler } from './status-bar';
 import { CommentHandler, CommentHandlerFactory } from './comment-handler';
-import { toPosition, toUri } from './utils';
+import { toVsPosition, toUri } from './utils';
 
 export class ExtensionController {
     private statusBarHandler: StatusBarHandler;
@@ -150,7 +150,7 @@ export class ExtensionController {
     private async loadClientAndPR(forceReloadClient: boolean = false) {
         if (!this.client || forceReloadClient) {
             try {
-                this.client = getClient(this.configManager);
+                this.client = await getClient(this.configManager);
                 await this.client.activate();
             } catch (error) {
                 this.commentHandler.clearComments();
@@ -187,8 +187,8 @@ export class ExtensionController {
                 toUri(filePath, this.git.repositoryRoot),
                 {
                     selection: new vsc.Range(
-                        toPosition(start),
-                        toPosition(end),
+                        toVsPosition(start),
+                        toVsPosition(end),
                     ),
                 },
             );
