@@ -61,9 +61,22 @@ export interface AzureClient {
         content: string,
         threadContext?: gi.CommentThreadContext,
     ): Promise<gi.GitPullRequestCommentThread>;
+
+    /**
+     * Updates a comment thread.
+     * @param pullRequestId The ID of the pull request.
+     * @param thread The thread to update.
+     * @returns The updated thread.
+     */
+    updateThread(
+        pullRequestId: number,
+        thread: gi.GitPullRequestCommentThread,
+    ): Promise<gi.GitPullRequestCommentThread>;
 }
 
-export async function getClient(cm: ConfigurationManager): Promise<AzureClient> {
+export async function getClient(
+    cm: ConfigurationManager,
+): Promise<AzureClient> {
     if (DEV_MODE) {
         return import('./mocks/client').then(m => m.getClient(cm));
     }
@@ -158,6 +171,19 @@ class AzureRealClient implements AzureClient {
             this.configuration.repositoryName,
             pullRequestId,
             threadId,
+            this.configuration.projectName,
+        );
+    }
+
+    async updateThread(
+        pullRequestId: number,
+        thread: gi.GitPullRequestCommentThread,
+    ): Promise<gi.GitPullRequestCommentThread> {
+        return await this.gitClient.updateThread(
+            thread,
+            this.configuration.repositoryName,
+            pullRequestId,
+            thread.id!,
             this.configuration.projectName,
         );
     }

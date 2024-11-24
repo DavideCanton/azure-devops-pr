@@ -31,8 +31,40 @@
                 "title": "Reply"
             },
             {
+                "command": "azure-devops-pr.replyAndResolveThread",
+                "title": "Reply and resolve"
+            },
+            {
+                "command": "azure-devops-pr.replyAndReopenThread",
+                "title": "Reply and reopen"
+            },
+            {
                 "command": "azure-devops-pr.createThread",
                 "title": "Comment"
+            },
+            {
+                "command": "azure-devops-pr.set-status-to-active",
+                "title": "Active"
+            },
+            {
+                "command": "azure-devops-pr.set-status-to-fixed",
+                "title": "Fixed"
+            },
+            {
+                "command": "azure-devops-pr.set-status-to-wontFix",
+                "title": "Won't Fix"
+            },
+            {
+                "command": "azure-devops-pr.set-status-to-closed",
+                "title": "Closed"
+            },
+            {
+                "command": "azure-devops-pr.set-status-to-byDesign",
+                "title": "By Design"
+            },
+            {
+                "command": "azure-devops-pr.set-status-to-pending",
+                "title": "Pending"
             }
         ],
         "configuration": {
@@ -62,6 +94,13 @@
             }
         },
         "menus": {
+            "comments/commentThread/title": [
+                {
+                    "submenu": "azure-devops-pr.change-status-submenu",
+                    "group": "inline",
+                    "when": "commentController == azure-devops-pr-comment && !commentThreadIsEmpty"
+                }
+            ],
             "comments/commentThread/context": [
                 {
                     "command": "azure-devops-pr.createThread",
@@ -72,9 +111,46 @@
                     "command": "azure-devops-pr.replyThread",
                     "group": "inline",
                     "when": "commentController == azure-devops-pr-comment && !commentThreadIsEmpty"
+                },
+                {
+                    "command": "azure-devops-pr.replyAndResolveThread",
+                    "group": "inline",
+                    "when": "commentController == azure-devops-pr-comment && !commentThreadIsEmpty && commentThread =~ /status=(Active|Pending)/"
+                },
+                {
+                    "command": "azure-devops-pr.replyAndReopenThread",
+                    "group": "inline",
+                    "when": "commentController == azure-devops-pr-comment && !commentThreadIsEmpty && !(commentThread =~ /status=(Active|Pending)/)"
+                }
+            ],
+            "azure-devops-pr.change-status-submenu": [
+                {
+                    "command": "azure-devops-pr.set-status-to-active"
+                },
+                {
+                    "command": "azure-devops-pr.set-status-to-fixed"
+                },
+                {
+                    "command": "azure-devops-pr.set-status-to-wontFix"
+                },
+                {
+                    "command": "azure-devops-pr.set-status-to-closed"
+                },
+                {
+                    "command": "azure-devops-pr.set-status-to-byDesign"
+                },
+                {
+                    "command": "azure-devops-pr.set-status-to-pending"
                 }
             ]
-        }
+        },
+        "submenus": [
+            {
+                "id": "azure-devops-pr.change-status-submenu",
+                "label": "Change thread status",
+                "icon": "$(chevron-down)"
+            }
+        ]
     },
     "scripts": {
         "clean": "rimraf ./out",

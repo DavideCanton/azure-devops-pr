@@ -58,6 +58,20 @@ export interface CommentHandler extends vs.Disposable {
     ): Promise<void>;
 
     /**
+     * Updates the status of a comment thread.
+     * @param thread: The thread.
+     * @param status The new status.
+     * @param pullRequestId The pull request ID.
+     * @param client The Azure DevOps client.
+     */
+    updateStatus(
+        thread: vs.CommentThread,
+        status: gi.CommentThreadStatus,
+        pullRequestId: number,
+        client: AzureClient,
+    ): Promise<void>;
+
+    /**
      * Clears all comment threads.
      */
     clearComments(): void;
@@ -108,6 +122,20 @@ class CommentImpl implements vs.Comment {
             azureThread,
             azureComment,
             reactions,
+        );
+    }
+
+    updateWith(updated: Partial<CommentImpl>): CommentImpl {
+        return new CommentImpl(
+            updated.body ?? this.body,
+            updated.mode ?? this.mode,
+            updated.author ?? this.author,
+            updated.azureThread ?? this.azureThread,
+            updated.azureComment ?? this.azureComment,
+            updated.reactions ?? this.reactions,
+            updated.contextValue ?? this.contextValue,
+            updated.label ?? this.label,
+            updated.timestamp ?? this.timestamp,
         );
     }
 
@@ -247,17 +275,7 @@ class CommentHandlerImpl implements CommentHandler {
             ),
             comments,
         );
-        ct.label = `[${gi.CommentThreadStatus[thread.status!].toString()}]`;
-
-        if (
-            thread.status !== undefined &&
-            this.RESOLVED_STATUSES.includes(thread.status)
-        ) {
-            ct.state = vs.CommentThreadState.Resolved;
-        } else {
-            ct.state = vs.CommentThreadState.Unresolved;
-        }
-
+        this.updateCommentThread(ct, thread);
         this.threads.push(ct);
 
         return ct;
@@ -366,6 +384,31 @@ class CommentHandlerImpl implements CommentHandler {
         thread.comments = [...thread.comments, comment];
     }
 
+    async updateStatus(
+        thread: vs.CommentThread,
+        status: gi.CommentThreadStatus,
+        pullRequestId: number,
+        client: AzureClient,
+    ): Promise<void> {
+        const lastComment = last(thread.comments) as CommentImpl;
+        const azureThread = lastComment.azureThread;
+        if (azureThread.status !== status) {
+            azureThread.status = status;
+            const updated = await client.updateThread(
+                pullRequestId,
+                azureThread,
+            );
+            thread.comments = [
+                ...thread.comments.map(c =>
+                    (c as CommentImpl).updateWith({
+                        azureThread: updated,
+                    }),
+                ),
+            ];
+            this.updateCommentThread(thread, updated);
+        }
+    }
+
     private validThread(thread: gi.GitPullRequestCommentThread): boolean {
         return (
             !!thread.threadContext &&
@@ -374,5 +417,29 @@ class CommentHandlerImpl implements CommentHandler {
             !!thread.threadContext.rightFileEnd &&
             !thread.isDeleted
         );
+    }
+
+    private updateCommentThread(
+        ct: vs.CommentThread,
+        thread: gi.GitPullRequestCommentThread,
+    ) {
+        const status = thread.status!;
+
+        ct.state = this.computeThreadState(status);
+
+        const statusName = gi.CommentThreadStatus[status].toString();
+        ct.label = `[${statusName}]`;
+
+        ct.contextValue = `|status=${statusName}|`;
+    }
+
+    private computeThreadState(
+        status: gi.CommentThreadStatus,
+    ): vs.CommentThreadState | undefined {
+        if (this.RESOLVED_STATUSES.includes(status)) {
+            return vs.CommentThreadState.Resolved;
+        } else {
+            return vs.CommentThreadState.Unresolved;
+        }
     }
 }

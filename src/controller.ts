@@ -86,6 +86,17 @@ export class ExtensionController {
             vsc.commands.registerCommand(C.REPLY_CMD, reply =>
                 ctrl.replyToThread(reply),
             ),
+            vsc.commands.registerCommand(C.REPLY_AND_RESOLVE_CMD, reply =>
+                ctrl.replyAndResolveThread(reply),
+            ),
+            vsc.commands.registerCommand(C.REPLY_AND_REOPEN_CMD, reply =>
+                ctrl.replyAndReopenThread(reply),
+            ),
+            ...C.SET_STATUS_CMDS.map(([name, status]) =>
+                vsc.commands.registerCommand(name, async thread => {
+                    ctrl.updateStatus(thread, status);
+                }),
+            ),
             vsc.workspace.onDidChangeConfiguration(e => {
                 ctrl.configManager.emitChangedConfig(e);
             }),
@@ -107,9 +118,57 @@ export class ExtensionController {
         );
     }
 
+    private async updateStatus(
+        thread: vsc.CommentThread,
+        status: gi.CommentThreadStatus,
+    ): Promise<void> {
+        await this.commentHandler.updateStatus(
+            thread,
+            status,
+            this.pullRequest!.pullRequestId!,
+            this.client,
+        );
+    }
+
     private async replyToThread(reply: vsc.CommentReply): Promise<void> {
         await this.commentHandler.replyToThread(
             reply,
+            this.pullRequest!.pullRequestId!,
+            this.client,
+        );
+    }
+
+    private async replyAndResolveThread(
+        reply: vsc.CommentReply,
+    ): Promise<void> {
+        if (reply.text) {
+            await this.commentHandler.replyToThread(
+                reply,
+                this.pullRequest!.pullRequestId!,
+                this.client,
+            );
+        }
+
+        await this.commentHandler.updateStatus(
+            reply.thread,
+            gi.CommentThreadStatus.Fixed,
+            this.pullRequest!.pullRequestId!,
+            this.client,
+        );
+    }
+
+    private async replyAndReopenThread(reply: vsc.CommentReply): Promise<void> {
+        if (reply.text) {
+            await this.commentHandler.replyToThread(
+                reply,
+                this.pullRequest!.pullRequestId!,
+                this.client,
+            );
+        }
+
+        await this.commentHandler.updateStatus(
+            reply.thread,
+            gi.CommentThreadStatus.Active,
             this.pullRequest!.pullRequestId!,
             this.client,
         );
