@@ -247,17 +247,18 @@ class CommentHandlerImpl implements CommentHandler {
             ),
             comments,
         );
-        ct.label = gi.CommentThreadStatus[thread.status!].toString();
+        ct.label = `[${gi.CommentThreadStatus[thread.status!].toString()}]`;
 
-        if (thread.status && this.RESOLVED_STATUSES.includes(thread.status)) {
+        if (
+            thread.status !== undefined &&
+            this.RESOLVED_STATUSES.includes(thread.status)
+        ) {
             ct.state = vs.CommentThreadState.Resolved;
         } else {
             ct.state = vs.CommentThreadState.Unresolved;
         }
 
-        if (ct) {
-            this.threads.push(ct);
-        }
+        this.threads.push(ct);
 
         return ct;
     }
