@@ -122,12 +122,16 @@ export class ExtensionController {
         thread: vsc.CommentThread,
         status: gi.CommentThreadStatus,
     ): Promise<void> {
-        await this.commentHandler.updateStatus(
-            thread,
-            status,
-            this.pullRequest!.pullRequestId!,
-            this.client,
-        );
+        try {
+            await this.commentHandler.updateStatus(
+                thread,
+                status,
+                this.pullRequest!.pullRequestId!,
+                this.client,
+            );
+        } catch (error) {
+            debugger;
+        }
     }
 
     private async replyToThread(reply: vsc.CommentReply): Promise<void> {

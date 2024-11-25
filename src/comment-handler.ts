@@ -248,10 +248,12 @@ class CommentHandlerImpl implements CommentHandler {
             }
 
             let content = comment.content!;
-            content = content.replace(
-                /```suggestion/g,
-                '**Suggestion**:\n```suggestion',
-            );
+            if (content) {
+                content = content.replace(
+                    /```suggestion/g,
+                    '**Suggestion**:\n```suggestion',
+                );
+            }
 
             comments.push(
                 CommentImpl.createComment(
@@ -393,10 +395,11 @@ class CommentHandlerImpl implements CommentHandler {
         const lastComment = last(thread.comments) as CommentImpl;
         const azureThread = lastComment.azureThread;
         if (azureThread.status !== status) {
-            azureThread.status = status;
+            const threadUpdate: gi.GitPullRequestCommentThread = { status };
             const updated = await client.updateThread(
                 pullRequestId,
-                azureThread,
+                azureThread.id!,
+                threadUpdate,
             );
             thread.comments = [
                 ...thread.comments.map(c =>

@@ -45,9 +45,13 @@ class MockClient implements AzureClient {
 
     async updateThread(
         pullRequestId: number,
+        threadId: number,
         thread: gi.GitPullRequestCommentThread,
     ): Promise<gi.GitPullRequestCommentThread> {
-        return thread;
+        const t = THREADS.find(t => t.id === threadId)!;
+        const copy = JSON.parse(JSON.stringify(t));
+        copy.status = thread.status;
+        return t;
     }
 }
 

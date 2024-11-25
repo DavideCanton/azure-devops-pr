@@ -65,11 +65,13 @@ export interface AzureClient {
     /**
      * Updates a comment thread.
      * @param pullRequestId The ID of the pull request.
-     * @param thread The thread to update.
+     * @param threadId The thread id to update.
+     * @param thread The partial body of the thread with the fields to update.
      * @returns The updated thread.
      */
     updateThread(
         pullRequestId: number,
+        threadId: number,
         thread: gi.GitPullRequestCommentThread,
     ): Promise<gi.GitPullRequestCommentThread>;
 }
@@ -177,13 +179,14 @@ class AzureRealClient implements AzureClient {
 
     async updateThread(
         pullRequestId: number,
+        threadId: number,
         thread: gi.GitPullRequestCommentThread,
     ): Promise<gi.GitPullRequestCommentThread> {
         return await this.gitClient.updateThread(
             thread,
             this.configuration.repositoryName,
             pullRequestId,
-            thread.id!,
+            threadId,
             this.configuration.projectName,
         );
     }
