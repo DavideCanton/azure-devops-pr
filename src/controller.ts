@@ -75,27 +75,27 @@ export class ExtensionController {
             vsc.commands.registerCommand(
                 C.OPEN_FILE_CMD,
                 async (filePath, start, end) =>
-                    ctrl.openFile(filePath, start, end),
+                    ctrl.runCommand(() => ctrl.openFile(filePath, start, end)),
             ),
             vsc.commands.registerCommand(C.OPEN_PR_CMD, async () =>
-                ctrl.openPR(),
+                ctrl.runCommand(() => ctrl.openPR()),
             ),
             vsc.commands.registerCommand(C.CREATE_THREAD_CMD, reply =>
-                ctrl.createThreadWithComment(reply),
+                ctrl.runCommand(() => ctrl.createThreadWithComment(reply)),
             ),
             vsc.commands.registerCommand(C.REPLY_CMD, reply =>
-                ctrl.replyToThread(reply),
+                ctrl.runCommand(() => ctrl.replyToThread(reply)),
             ),
             vsc.commands.registerCommand(C.REPLY_AND_RESOLVE_CMD, reply =>
-                ctrl.replyAndResolveThread(reply),
+                ctrl.runCommand(() => ctrl.replyAndResolveThread(reply)),
             ),
             vsc.commands.registerCommand(C.REPLY_AND_REOPEN_CMD, reply =>
-                ctrl.replyAndReopenThread(reply),
+                ctrl.runCommand(() => ctrl.replyAndReopenThread(reply)),
             ),
             ...C.SET_STATUS_CMDS.map(([name, status]) =>
-                vsc.commands.registerCommand(name, async thread => {
-                    ctrl.updateStatus(thread, status);
-                }),
+                vsc.commands.registerCommand(name, async thread =>
+                    ctrl.runCommand(() => ctrl.updateStatus(thread, status)),
+                ),
             ),
             vsc.workspace.onDidChangeConfiguration(e => {
                 ctrl.configManager.emitChangedConfig(e);
@@ -106,6 +106,16 @@ export class ExtensionController {
     }
 
     deactivate() {}
+
+    private async runCommand<T>(fn: () => Promise<T>): Promise<T> {
+        try {
+            return await fn();
+        } catch (error) {
+            logException(error as Error);
+            vsc.window.showErrorMessage('Error while executing command');
+            throw error;
+        }
+    }
 
     private async createThreadWithComment(
         reply: vsc.CommentReply,
@@ -122,16 +132,12 @@ export class ExtensionController {
         thread: vsc.CommentThread,
         status: gi.CommentThreadStatus,
     ): Promise<void> {
-        try {
-            await this.commentHandler.updateStatus(
-                thread,
-                status,
-                this.pullRequest!.pullRequestId!,
-                this.client,
-            );
-        } catch (error) {
-            debugger;
-        }
+        await this.commentHandler.updateStatus(
+            thread,
+            status,
+            this.pullRequest!.pullRequestId!,
+            this.client,
+        );
     }
 
     private async replyToThread(reply: vsc.CommentReply): Promise<void> {
