@@ -11,6 +11,12 @@ export class StatusBarHandler {
         );
     }
 
+    displayLoading() {
+        this.statusBarItem.text = `$(loading~spin) Loading PR...`;
+        this.statusBarItem.command = undefined;
+        this.statusBarItem.show();
+    }
+
     displayPR(pr: GitPullRequest) {
         const prId = pr.pullRequestId;
         if (prId !== null) {

@@ -3,6 +3,7 @@ import { spawn } from 'node:child_process';
 import { lstat } from 'node:fs/promises';
 import * as vs from 'vscode';
 import { log } from './logs';
+import { DisposableLike } from './utils';
 
 export interface GitInterface {
     readonly repositoryRoot: string;
@@ -128,7 +129,7 @@ class GitInterfaceImpl implements GitInterface {
 /**
  * An interface for detecting changes in the current branch.
  */
-export interface BranchChangeDetector extends vs.Disposable {
+export interface BranchChangeDetector extends DisposableLike {
     /**
      * An event that is fired when the current branch changes. The event is fired with the new branch (or `null`
      * if no branch is active).
@@ -151,7 +152,8 @@ export type BranchChangeDetectorFactory = typeof createBranchChangeDetector;
  * A class that detects changes in the current branch using the file system watcher.
  */
 class FsWatcherBranchChangeDetectorImpl
-    implements BranchChangeDetector, vs.Disposable {
+    implements BranchChangeDetector, DisposableLike
+{
     /**
      * {@inheritdoc BranchChangeDetector.branchChanged}
      */
@@ -189,9 +191,6 @@ class FsWatcherBranchChangeDetectorImpl
         this.fsWatcher.onDidDelete(branchChangeCallback);
     }
 
-    /**
-     * {@inheritdoc vs.Disposable.dispose}
-     */
     dispose() {
         this.fsWatcher?.dispose();
         this.branchChangedEmitter.dispose();
@@ -217,4 +216,3 @@ export function createBranchChangeDetector(
 ): BranchChangeDetector {
     return new FsWatcherBranchChangeDetectorImpl(git);
 }
-

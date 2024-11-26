@@ -3,7 +3,7 @@ import { IdentityRef } from 'azure-devops-node-api/interfaces/common/VSSInterfac
 import * as path from 'node:path';
 import * as vs from 'vscode';
 import { COMMENT_CONTROLLER_ID } from './constants';
-import { toVsPosition, toUri, toGiPosition } from './utils';
+import { toVsPosition, toUri, toGiPosition, DisposableLike } from './utils';
 import { AzureClient } from './client';
 import { Identity } from 'azure-devops-node-api/interfaces/IdentitiesInterfaces';
 import last from 'lodash-es/last';
@@ -11,7 +11,7 @@ import last from 'lodash-es/last';
 /**
  * Interface for handling comment threads.
  */
-export interface CommentHandler extends vs.Disposable {
+export interface CommentHandler extends DisposableLike {
     /**
      * Maps a pull request comment thread to a VS Code comment thread.
      * @param thread The thread to map.
@@ -114,7 +114,7 @@ class CommentImpl implements vs.Comment {
         azureComment: gi.Comment,
         reactions?: vs.CommentReaction[],
         commentAuthor: IdentityRef | 'self' = 'self',
-    ) {
+    ): CommentImpl {
         return new CommentImpl(
             new vs.MarkdownString(content),
             vs.CommentMode.Preview,
@@ -206,7 +206,7 @@ class CommentHandlerImpl implements CommentHandler {
         repoRoot: string,
         currentUser: Identity,
     ): Promise<vs.CommentThread | null> {
-        if (!this.validThread(thread)) {
+        if (!this.isValidThread(thread)) {
             return null;
         }
 
@@ -354,8 +354,7 @@ class CommentHandlerImpl implements CommentHandler {
             azureThread,
             azureThread.comments![0],
         );
-        thread.label =
-            gi.CommentThreadStatus[gi.CommentThreadStatus.Active].toString();
+        this.updateCommentThread(thread, azureThread);
 
         // register the new thread among the threads to be disposed if reloading
         this.threads.push(thread);
@@ -395,11 +394,10 @@ class CommentHandlerImpl implements CommentHandler {
         const lastComment = last(thread.comments) as CommentImpl;
         const azureThread = lastComment.azureThread;
         if (azureThread.status !== status) {
-            const threadUpdate: gi.GitPullRequestCommentThread = { status };
             const updated = await client.updateThread(
                 pullRequestId,
                 azureThread.id!,
-                threadUpdate,
+                { status },
             );
             thread.comments = [
                 ...thread.comments.map(c =>
@@ -412,7 +410,7 @@ class CommentHandlerImpl implements CommentHandler {
         }
     }
 
-    private validThread(thread: gi.GitPullRequestCommentThread): boolean {
+    private isValidThread(thread: gi.GitPullRequestCommentThread): boolean {
         return (
             !!thread.threadContext &&
             !!thread.threadContext.filePath &&
@@ -425,24 +423,16 @@ class CommentHandlerImpl implements CommentHandler {
     private updateCommentThread(
         ct: vs.CommentThread,
         thread: gi.GitPullRequestCommentThread,
-    ) {
+    ): void {
         const status = thread.status!;
 
-        ct.state = this.computeThreadState(status);
+        ct.state = this.RESOLVED_STATUSES.includes(status)
+            ? vs.CommentThreadState.Resolved
+            : vs.CommentThreadState.Unresolved;
 
         const statusName = gi.CommentThreadStatus[status].toString();
         ct.label = `[${statusName}]`;
 
         ct.contextValue = `|status=${statusName}|`;
-    }
-
-    private computeThreadState(
-        status: gi.CommentThreadStatus,
-    ): vs.CommentThreadState | undefined {
-        if (this.RESOLVED_STATUSES.includes(status)) {
-            return vs.CommentThreadState.Resolved;
-        } else {
-            return vs.CommentThreadState.Unresolved;
-        }
     }
 }

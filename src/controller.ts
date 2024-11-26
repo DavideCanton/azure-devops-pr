@@ -52,16 +52,16 @@ export class ExtensionController {
         ctrl.commentHandler = createCommentHandler();
 
         ctrl.configManager.onConfigChanged(() => {
-            ctrl.loadClientAndPR(true);
+            ctrl.loadClientAndPullRequest(true);
         });
 
-        await ctrl.loadClientAndPR();
+        await ctrl.loadClientAndPullRequest();
 
         const branchDetector = branchChangeDetectorFactory(ctrl.git);
         branchDetector.activateDetection();
-        branchDetector.branchChanged(async b => {
-            if (b) {
-                await ctrl.downloadPR(b);
+        branchDetector.branchChanged(async branch => {
+            if (branch) {
+                await ctrl.downloadPullRequest(branch);
             }
         });
 
@@ -69,32 +69,37 @@ export class ExtensionController {
             ctrl.commentHandler,
             ctrl.configManager,
             branchDetector,
-            vsc.commands.registerCommand(C.REFRESH_CMD, async () =>
-                ctrl.loadClientAndPR(),
+            ctrl.registerCommand(C.REFRESH_CMD, () =>
+                ctrl.loadClientAndPullRequest(),
             ),
-            vsc.commands.registerCommand(
+            ctrl.registerCommand(
                 C.OPEN_FILE_CMD,
-                async (filePath, start, end) =>
-                    ctrl.runCommand(() => ctrl.openFile(filePath, start, end)),
+                (
+                    filePath: string,
+                    start: gi.CommentPosition,
+                    end: gi.CommentPosition,
+                ) => ctrl.openFile(filePath, start, end),
             ),
-            vsc.commands.registerCommand(C.OPEN_PR_CMD, async () =>
-                ctrl.runCommand(() => ctrl.openPR()),
+            ctrl.registerCommand(C.OPEN_PR_CMD, () => ctrl.openPullRequest()),
+            ctrl.registerCommand(
+                C.CREATE_THREAD_CMD,
+                (reply: vsc.CommentReply) =>
+                    ctrl.createThreadWithComment(reply),
             ),
-            vsc.commands.registerCommand(C.CREATE_THREAD_CMD, reply =>
-                ctrl.runCommand(() => ctrl.createThreadWithComment(reply)),
+            ctrl.registerCommand(C.REPLY_CMD, (reply: vsc.CommentReply) =>
+                ctrl.replyToThread(reply),
             ),
-            vsc.commands.registerCommand(C.REPLY_CMD, reply =>
-                ctrl.runCommand(() => ctrl.replyToThread(reply)),
+            ctrl.registerCommand(
+                C.REPLY_AND_RESOLVE_CMD,
+                (reply: vsc.CommentReply) => ctrl.replyAndResolveThread(reply),
             ),
-            vsc.commands.registerCommand(C.REPLY_AND_RESOLVE_CMD, reply =>
-                ctrl.runCommand(() => ctrl.replyAndResolveThread(reply)),
+            ctrl.registerCommand(
+                C.REPLY_AND_REOPEN_CMD,
+                (reply: vsc.CommentReply) => ctrl.replyAndReopenThread(reply),
             ),
-            vsc.commands.registerCommand(C.REPLY_AND_REOPEN_CMD, reply =>
-                ctrl.runCommand(() => ctrl.replyAndReopenThread(reply)),
-            ),
-            ...C.SET_STATUS_CMDS.map(([name, status]) =>
-                vsc.commands.registerCommand(name, async thread =>
-                    ctrl.runCommand(() => ctrl.updateStatus(thread, status)),
+            ...C.SET_STATUS_CMDS.map(([command, status]) =>
+                ctrl.registerCommand(command, (thread: vsc.CommentThread) =>
+                    ctrl.updateStatus(thread, status),
                 ),
             ),
             vsc.workspace.onDidChangeConfiguration(e => {
@@ -107,14 +112,17 @@ export class ExtensionController {
 
     deactivate() {}
 
-    private async runCommand<T>(fn: () => Promise<T>): Promise<T> {
-        try {
-            return await fn();
-        } catch (error) {
-            logException(error as Error);
-            vsc.window.showErrorMessage('Error while executing command');
-            throw error;
-        }
+    private registerCommand(
+        commandId: string,
+        fn: (...args: any[]) => Promise<any>,
+    ): vsc.Disposable {
+        return vsc.commands.registerCommand(commandId, (...args) =>
+            fn(...args).catch(error => {
+                logException(error as Error);
+                vsc.window.showErrorMessage('Error while executing command');
+                throw error;
+            }),
+        );
     }
 
     private async createThreadWithComment(
@@ -184,7 +192,9 @@ export class ExtensionController {
         );
     }
 
-    private async downloadPR(currentBranch: string) {
+    private async downloadPullRequest(currentBranch: string): Promise<void> {
+        this.statusBarHandler.displayLoading();
+
         this.pullRequest = await this.client.loadPullRequest(currentBranch);
 
         this.commentHandler.clearComments();
@@ -192,31 +202,38 @@ export class ExtensionController {
 
         if (this.pullRequest) {
             log(`Downloaded PR ${this.pullRequest.pullRequestId!}`);
+            const prId = this.pullRequest.pullRequestId ?? null;
+            if (!prId) {
+                log('PR has no id');
+                return;
+            }
+            this.statusBarHandler.displayPR(this.pullRequest!);
+
+            const threads = await this.client.loadThreads(prId);
+
+            log(`Downloaded ${threads.length} threads.`);
+
+            for (const thread of threads) {
+                log(`Mapping thread ${thread.id}`);
+                try {
+                    await this.commentHandler.mapThread(
+                        thread,
+                        this.git.repositoryRoot,
+                        this.client.user,
+                    );
+                } catch (error) {
+                    log(`Error while mapping thread ${thread.id}`);
+                    logException(error as Error);
+                }
+            }
         } else {
             log('No PR found');
         }
-
-        const prId = this.pullRequest?.pullRequestId ?? null;
-        this.statusBarHandler.displayPR(this.pullRequest!);
-
-        if (prId === null) {
-            return;
-        }
-
-        const threads = await this.client.loadThreads(prId);
-
-        log(`Downloaded ${threads.length} threads.`);
-
-        for (const thread of threads) {
-            await this.commentHandler.mapThread(
-                thread,
-                this.git.repositoryRoot,
-                this.client.user,
-            );
-        }
     }
 
-    private async loadClientAndPR(forceReloadClient: boolean = false) {
+    private async loadClientAndPullRequest(
+        forceReloadClient: boolean = false,
+    ): Promise<void> {
         if (!this.client || forceReloadClient) {
             try {
                 this.client = await getClient(this.configManager);
@@ -238,7 +255,7 @@ export class ExtensionController {
                 return;
             }
             log(`Detected branch ${currentBranch}`);
-            await this.downloadPR(currentBranch);
+            await this.downloadPullRequest(currentBranch);
         } catch (error) {
             this.commentHandler.clearComments();
             vsc.window.showErrorMessage('Error while downloading comments');
@@ -262,18 +279,20 @@ export class ExtensionController {
                 },
             );
         } catch (error) {
-            vsc.window.showErrorMessage('Error while displaying comments');
+            vsc.window.showErrorMessage(
+                `Error while opening file ${filePath} in editor`,
+            );
             logException(error as Error);
         }
     }
 
-    private async openPR() {
-        const prId = this.pullRequest?.pullRequestId;
-        if (prId === undefined) {
-            return;
+    private async openPullRequest(): Promise<boolean> {
+        const id = this.pullRequest?.pullRequestId;
+        if (id === undefined) {
+            return false;
         }
 
-        const uri = this.configManager.configuration.buildPullRequestUrl(prId);
-        vsc.env.openExternal(uri);
+        const uri = this.configManager.configuration.buildPullRequestUrl(id);
+        return vsc.env.openExternal(uri);
     }
 }

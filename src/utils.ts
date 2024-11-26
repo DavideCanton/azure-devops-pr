@@ -17,3 +17,7 @@ export function toGiPosition(pos: vs.Position): gi.CommentPosition {
 export function toUri(filePath: string, repoRoot: string): vs.Uri {
     return vs.Uri.file(path.join(repoRoot, filePath.replace(/^\//, '')));
 }
+
+export interface DisposableLike {
+    dispose(): void;
+}

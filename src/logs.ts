@@ -11,5 +11,7 @@ export function log(msg: any) {
 
 export function logException(error: Error) {
     log(error.message);
-    if (error.stack) _OUT_CHANNEL.appendLine(error.stack);
+    if (error.stack) {
+        _OUT_CHANNEL.appendLine(error.stack);
+    }
 }

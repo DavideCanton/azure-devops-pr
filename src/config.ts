@@ -1,7 +1,7 @@
 import * as vsc from 'vscode';
 import { EXT_ID } from './constants';
 import { log, logException } from './logs';
-import { buildUri } from './utils';
+import { buildUri, DisposableLike } from './utils';
 
 /**
  * Settings object.
@@ -105,7 +105,7 @@ function requireKey<S extends keyof Settings>(
  *
  * Provides access to the current configuration and emits an event when the configuration changes.
  */
-export class ConfigurationManager implements vsc.Disposable {
+export class ConfigurationManager implements DisposableLike {
     _configuration: Configuration;
     private _configChanged = new vsc.EventEmitter<Configuration | null>();
 
