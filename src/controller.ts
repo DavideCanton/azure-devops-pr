@@ -203,6 +203,8 @@ export class ExtensionController {
         this.commentHandler.clearComments();
         this.commentHandler.updateCommentingProviderRange(!!this.pullRequest);
 
+        this.statusBarHandler.displayPR(this.pullRequest);
+
         if (this.pullRequest) {
             log(`Downloaded PR ${this.pullRequest.pullRequestId!}`);
             const prId = this.pullRequest.pullRequestId ?? null;
@@ -210,7 +212,6 @@ export class ExtensionController {
                 log('PR has no id');
                 return;
             }
-            this.statusBarHandler.displayPR(this.pullRequest!);
 
             const threads = await this.client.loadThreads(prId);
 

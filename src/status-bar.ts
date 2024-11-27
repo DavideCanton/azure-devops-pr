@@ -17,10 +17,10 @@ export class StatusBarHandler {
         this.statusBarItem.show();
     }
 
-    displayPR(pr: GitPullRequest) {
-        const prId = pr.pullRequestId;
+    displayPR(pr: GitPullRequest | null) {
+        const prId = pr?.pullRequestId ?? null;
         if (prId !== null) {
-            const icon = pr.isDraft
+            const icon = pr!.isDraft
                 ? 'git-pull-request-draft'
                 : 'git-pull-request';
             this.statusBarItem.text = `$(${icon}) ${prId}`;
