@@ -1,8 +1,9 @@
 import * as gi from 'azure-devops-node-api/interfaces/GitInterfaces';
 import * as vsc from 'vscode';
 import { AzureClient, getClient } from './client';
+import { CommentHandler, CommentHandlerFactory } from './comment-handler';
 import { ConfigurationManager } from './config';
-import * as C from './constants';
+import { Commands } from './constants';
 import {
     BranchChangeDetectorFactory,
     GitInterface,
@@ -10,8 +11,7 @@ import {
 } from './git-utils';
 import { log, logException } from './logs';
 import { StatusBarHandler } from './status-bar';
-import { CommentHandler, CommentHandlerFactory } from './comment-handler';
-import { toVsPosition, toUri } from './utils';
+import { toUri, toVsPosition } from './utils';
 
 export class ExtensionController {
     private statusBarHandler: StatusBarHandler;
@@ -69,35 +69,38 @@ export class ExtensionController {
             ctrl.commentHandler,
             ctrl.configManager,
             branchDetector,
-            ctrl.registerCommand(C.REFRESH_CMD, () =>
+            ctrl.registerCommand(Commands.REFRESH_CMD, () =>
                 ctrl.loadClientAndPullRequest(),
             ),
             ctrl.registerCommand(
-                C.OPEN_FILE_CMD,
+                Commands.OPEN_FILE_CMD,
                 (
                     filePath: string,
                     start: gi.CommentPosition,
                     end: gi.CommentPosition,
                 ) => ctrl.openFile(filePath, start, end),
             ),
-            ctrl.registerCommand(C.OPEN_PR_CMD, () => ctrl.openPullRequest()),
+            ctrl.registerCommand(Commands.OPEN_PR_CMD, () =>
+                ctrl.openPullRequest(),
+            ),
             ctrl.registerCommand(
-                C.CREATE_THREAD_CMD,
+                Commands.CREATE_THREAD_CMD,
                 (reply: vsc.CommentReply) =>
                     ctrl.createThreadWithComment(reply),
             ),
-            ctrl.registerCommand(C.REPLY_CMD, (reply: vsc.CommentReply) =>
-                ctrl.replyToThread(reply),
+            ctrl.registerCommand(
+                Commands.REPLY_CMD,
+                (reply: vsc.CommentReply) => ctrl.replyToThread(reply),
             ),
             ctrl.registerCommand(
-                C.REPLY_AND_RESOLVE_CMD,
+                Commands.REPLY_AND_RESOLVE_CMD,
                 (reply: vsc.CommentReply) => ctrl.replyAndResolveThread(reply),
             ),
             ctrl.registerCommand(
-                C.REPLY_AND_REOPEN_CMD,
+                Commands.REPLY_AND_REOPEN_CMD,
                 (reply: vsc.CommentReply) => ctrl.replyAndReopenThread(reply),
             ),
-            ...C.SET_STATUS_CMDS.map(([command, status]) =>
+            ...Commands.SET_STATUS.map(([command, status]) =>
                 ctrl.registerCommand(command, (thread: vsc.CommentThread) =>
                     ctrl.updateStatus(thread, status),
                 ),

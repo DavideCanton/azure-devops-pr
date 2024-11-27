@@ -1,5 +1,5 @@
 import * as vsc from 'vscode';
-import * as C from './constants';
+import { Commands } from './constants';
 import { GitPullRequest } from 'azure-devops-node-api/interfaces/GitInterfaces';
 
 export class StatusBarHandler {
@@ -24,7 +24,7 @@ export class StatusBarHandler {
                 ? 'git-pull-request-draft'
                 : 'git-pull-request';
             this.statusBarItem.text = `$(${icon}) ${prId}`;
-            this.statusBarItem.command = C.OPEN_PR_CMD;
+            this.statusBarItem.command = Commands.OPEN_PR_CMD;
             this.statusBarItem.show();
         } else {
             this.statusBarItem.hide();
