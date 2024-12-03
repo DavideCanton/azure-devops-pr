@@ -3,11 +3,17 @@
     "module": "commonjs",
     "target": "ES2022",
     "outDir": "out",
-    "lib": ["ES2022"],
+    "lib": [
+      "ES2022"
+    ],
     "sourceMap": true,
     "rootDir": "src",
     "strict": true,
     "strictPropertyInitialization": false,
-    "useDefineForClassFields": true
-  }
+    "useDefineForClassFields": true,
+    "allowJs": false
+  },
+  "files": [
+    "src/extension.ts"
+  ]
 }

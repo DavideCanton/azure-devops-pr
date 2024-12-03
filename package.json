@@ -158,7 +158,7 @@
         "test-compile": "tsc -p ./",
         "build": "npm run clean && webpack --node-env development",
         "build:watch": "npm run clean && webpack --node-env development --watch",
-        "build:watchMocks": "npm run clean && webpack --node-env development --watch --env mocks",
+        "build:watch-mocks": "npm run clean && webpack --node-env development --watch --env mocks",
         "build:prod": "npm run clean && webpack --node-env production --devtool hidden-source-map",
         "package": "vsce package",
         "lint": "eslint src --ext ts",

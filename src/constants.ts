@@ -38,5 +38,3 @@ export namespace Commands {
         status,
     ]);
 }
-
-export declare const DEV_MODE: boolean;

@@ -1,11 +1,10 @@
 import * as gi from 'azure-devops-node-api/interfaces/GitInterfaces';
 import { Identity } from 'azure-devops-node-api/interfaces/IdentitiesInterfaces';
-import { AzureClient } from '../client';
-import { ConfigurationManager } from '../config';
+import { AzureClient } from '..';
 import { PR } from './pr';
 import { THREADS } from './threads';
 
-class MockClient implements AzureClient {
+export class MockClient implements AzureClient {
     user: Identity;
 
     async activate(): Promise<void> {
@@ -53,8 +52,4 @@ class MockClient implements AzureClient {
         copy.status = thread.status;
         return t;
     }
-}
-
-export function getClient(_cm: ConfigurationManager): AzureClient {
-    return new MockClient();
 }

@@ -4,7 +4,7 @@ import * as path from 'node:path';
 import * as vs from 'vscode';
 import { COMMENT_CONTROLLER_ID } from './constants';
 import { toVsPosition, toUri, toGiPosition, DisposableLike } from './utils';
-import { AzureClient } from './client';
+import { AzureClient } from './clients';
 import { Identity } from 'azure-devops-node-api/interfaces/IdentitiesInterfaces';
 import last from 'lodash-es/last';
 

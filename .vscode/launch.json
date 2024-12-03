@@ -11,7 +11,19 @@
             "outFiles": [
                 "${workspaceFolder}/out/*.js"
             ],
-            "preLaunchTask": "${defaultBuildTask}"
+            "preLaunchTask": "Build & Watch"
+        },
+        {
+            "name": "Run Extension Dev",
+            "type": "extensionHost",
+            "request": "launch",
+            "args": [
+                "--extensionDevelopmentPath=${workspaceFolder}"
+            ],
+            "outFiles": [
+                "${workspaceFolder}/out/*.js"
+            ],
+            "preLaunchTask": "Build & Watch Dev"
         },
         {
             "name": "Extension Tests",

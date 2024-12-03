@@ -1,6 +1,6 @@
 import * as gi from 'azure-devops-node-api/interfaces/GitInterfaces';
 import * as vsc from 'vscode';
-import { AzureClient, getClient } from './client';
+import { AzureClient, getClient } from './clients';
 import { CommentHandler, CommentHandlerFactory } from './comment-handler';
 import { ConfigurationManager } from './config';
 import { Commands } from './constants';
