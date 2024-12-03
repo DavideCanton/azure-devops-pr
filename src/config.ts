@@ -107,7 +107,7 @@ function requireKey<S extends keyof Settings>(
  */
 export class ConfigurationManager implements DisposableLike {
     _configuration: Configuration;
-    private _configChanged = new vsc.EventEmitter<Configuration | null>();
+    private _configChanged = new vsc.EventEmitter<boolean>();
 
     /**
      * The current configuration.
@@ -121,16 +121,20 @@ export class ConfigurationManager implements DisposableLike {
      *
      * This method should be called when the extension is activated.
      */
-    activate() {
+    activate(): DisposableLike {
         this._loadConfiguration();
+
+        return vsc.workspace.onDidChangeConfiguration(e => {
+            this.emitChangedConfig(e);
+        });
     }
 
     /**
      * An event that is emitted when the configuration changes.
      *
-     * The event will be fired with the new configuration, or `null` if the configuration could not be loaded.
+     * If the configuration load fails, the event will be fired with `false`.
      */
-    get onConfigChanged(): vsc.Event<Configuration | null> {
+    get onConfigChanged(): vsc.Event<boolean> {
         return this._configChanged.event;
     }
 
@@ -148,10 +152,10 @@ export class ConfigurationManager implements DisposableLike {
             log('Configuration changed, reloading...');
             try {
                 this._loadConfiguration();
-                this._configChanged.fire(this._configuration);
+                this._configChanged.fire(true);
             } catch (e) {
                 logException(e as Error);
-                this._configChanged.fire(null);
+                this._configChanged.fire(false);
             }
         }
     }

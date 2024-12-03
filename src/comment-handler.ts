@@ -4,14 +4,14 @@ import * as path from 'node:path';
 import * as vs from 'vscode';
 import { COMMENT_CONTROLLER_ID } from './constants';
 import { toVsPosition, toUri, toGiPosition, DisposableLike } from './utils';
-import { AzureClient } from './clients';
+import { IAzureClient } from './clients';
 import { Identity } from 'azure-devops-node-api/interfaces/IdentitiesInterfaces';
 import last from 'lodash-es/last';
 
 /**
  * Interface for handling comment threads.
  */
-export interface CommentHandler extends DisposableLike {
+export interface ICommentHandler extends DisposableLike {
     /**
      * Maps a pull request comment thread to a VS Code comment thread.
      * @param thread The thread to map.
@@ -42,7 +42,7 @@ export interface CommentHandler extends DisposableLike {
         reply: vs.CommentReply,
         pullRequestId: number,
         repoRoot: string,
-        client: AzureClient,
+        client: IAzureClient,
     ): Promise<void>;
 
     /**
@@ -54,7 +54,7 @@ export interface CommentHandler extends DisposableLike {
     replyToThread(
         reply: vs.CommentReply,
         pullRequestId: number,
-        client: AzureClient,
+        client: IAzureClient,
     ): Promise<void>;
 
     /**
@@ -68,7 +68,7 @@ export interface CommentHandler extends DisposableLike {
         thread: vs.CommentThread,
         status: gi.CommentThreadStatus,
         pullRequestId: number,
-        client: AzureClient,
+        client: IAzureClient,
     ): Promise<void>;
 
     /**
@@ -76,12 +76,6 @@ export interface CommentHandler extends DisposableLike {
      */
     clearComments(): void;
 }
-
-export function createCommentHandler(): CommentHandler {
-    return new CommentHandlerImpl();
-}
-
-export type CommentHandlerFactory = typeof createCommentHandler;
 
 class CommentImpl implements vs.Comment {
     private constructor(
@@ -174,7 +168,7 @@ class CommentImpl implements vs.Comment {
     }
 }
 
-class CommentHandlerImpl implements CommentHandler {
+export class CommentHandler implements ICommentHandler {
     private commentController: vs.CommentController;
     private threads: vs.CommentThread[] = [];
 
@@ -305,7 +299,7 @@ class CommentHandlerImpl implements CommentHandler {
         reply: vs.CommentReply,
         pullRequestId: number,
         repoRoot: string,
-        client: AzureClient,
+        client: IAzureClient,
     ): Promise<void> {
         const thread = reply.thread;
 
@@ -364,7 +358,7 @@ class CommentHandlerImpl implements CommentHandler {
     async replyToThread(
         reply: vs.CommentReply,
         pullRequestId: number,
-        client: AzureClient,
+        client: IAzureClient,
     ): Promise<void> {
         const thread = reply.thread;
         const lastComment = last(thread.comments) as CommentImpl;
@@ -389,7 +383,7 @@ class CommentHandlerImpl implements CommentHandler {
         thread: vs.CommentThread,
         status: gi.CommentThreadStatus,
         pullRequestId: number,
-        client: AzureClient,
+        client: IAzureClient,
     ): Promise<void> {
         const lastComment = last(thread.comments) as CommentImpl;
         const azureThread = lastComment.azureThread;

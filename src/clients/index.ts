@@ -5,7 +5,7 @@ import { Identity } from 'azure-devops-node-api/interfaces/IdentitiesInterfaces'
 /**
  * Interface for interacting with Azure DevOps pull requests and threads.
  */
-export interface AzureClient {
+export interface IAzureClient {
     /**
      * The logged-in user's Identity.
      */
@@ -13,6 +13,8 @@ export interface AzureClient {
 
     /**
      * Activates the client.
+     *
+     * Can be called multiple times, to reinitialize the client.
      */
     activate(): Promise<void>;
 
@@ -72,11 +74,4 @@ export interface AzureClient {
         threadId: number,
         thread: gi.GitPullRequestCommentThread,
     ): Promise<gi.GitPullRequestCommentThread>;
-}
-
-export async function getClient(
-    cm: ConfigurationManager,
-): Promise<AzureClient> {
-    const m = await import('./real/client');
-    return new m.AzureRealClient(cm);
 }

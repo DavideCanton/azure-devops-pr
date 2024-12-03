@@ -2,10 +2,10 @@ import * as nodeApi from 'azure-devops-node-api';
 import * as gitApi from 'azure-devops-node-api/GitApi';
 import * as gi from 'azure-devops-node-api/interfaces/GitInterfaces';
 import { Identity } from 'azure-devops-node-api/interfaces/IdentitiesInterfaces';
-import { AzureClient } from '..';
+import { IAzureClient } from '..';
 import { Configuration, ConfigurationManager } from '../../config';
 
-export class AzureRealClient implements AzureClient {
+export class AzureRealClient implements IAzureClient {
     connection: nodeApi.WebApi;
     configurationManager: ConfigurationManager;
     _gitClient: gitApi.IGitApi | null = null;
@@ -13,13 +13,6 @@ export class AzureRealClient implements AzureClient {
 
     constructor(confManager: ConfigurationManager) {
         this.configurationManager = confManager;
-        const authHandler = nodeApi.getPersonalAccessTokenHandler(
-            confManager._configuration.token,
-        );
-        this.connection = new nodeApi.WebApi(
-            confManager._configuration.organizationUrl,
-            authHandler,
-        );
     }
 
     get user(): Identity {
@@ -38,6 +31,14 @@ export class AzureRealClient implements AzureClient {
     }
 
     async activate(): Promise<void> {
+        const authHandler = nodeApi.getPersonalAccessTokenHandler(
+            this.configurationManager.configuration.token,
+        );
+        this.connection = new nodeApi.WebApi(
+            this.configurationManager.configuration.organizationUrl,
+            authHandler,
+        );
+
         this._gitClient = await this.connection.getGitApi();
         this._user =
             (await this.connection.connect()).authenticatedUser ?? null;

@@ -1,116 +1,107 @@
 import * as gi from 'azure-devops-node-api/interfaces/GitInterfaces';
 import * as vsc from 'vscode';
-import { AzureClient, getClient } from './clients';
-import { CommentHandler, CommentHandlerFactory } from './comment-handler';
+import { IAzureClient } from './clients';
+import { ICommentHandler } from './comment-handler';
 import { ConfigurationManager } from './config';
 import { Commands } from './constants';
-import {
-    BranchChangeDetectorFactory,
-    GitInterface,
-    GitInterfaceFactory,
-} from './git-utils';
+import { IBranchChangeDetector, IGitInterface } from './git-utils';
 import { log, logException } from './logs';
 import { StatusBarHandler } from './status-bar';
 import { toUri, toVsPosition } from './utils';
 
 export class ExtensionController {
-    private statusBarHandler: StatusBarHandler;
     private pullRequest: gi.GitPullRequest | null = null;
-    private client: AzureClient;
 
-    private git: GitInterface;
-    private configManager: ConfigurationManager;
+    constructor(
+        private git: IGitInterface,
+        private branchDetector: IBranchChangeDetector,
+        private commentHandler: ICommentHandler,
+        private statusBarHandler: StatusBarHandler,
+        private configManager: ConfigurationManager,
+        private client: IAzureClient,
+    ) {}
 
-    private commentHandler: CommentHandler;
+    async activate(context: vsc.ExtensionContext): Promise<void> {
+        this.configManager.onConfigChanged(async success => {
+            if (success) {
+                try {
+                    await this.client.activate();
+                } catch (error) {
+                    this.commentHandler.clearComments();
+                    vsc.window.showErrorMessage(
+                        'Error while initializing the Azure DevOps client',
+                    );
+                    logException(error as Error);
+                    throw error;
+                }
 
-    private constructor() {}
-
-    static async create(
-        context: vsc.ExtensionContext,
-        gitHandlerFactory: GitInterfaceFactory,
-        branchChangeDetectorFactory: BranchChangeDetectorFactory,
-        createCommentHandler: CommentHandlerFactory,
-        configManager: ConfigurationManager,
-    ): Promise<ExtensionController> {
-        const ctrl = new ExtensionController();
-
-        const folder = vsc.workspace.workspaceFolders?.[0].uri.fsPath;
-        if (!folder) {
-            throw new Error('No folder opened');
-        }
-
-        ctrl.git = await gitHandlerFactory(folder);
-        ctrl.configManager = configManager;
-
-        try {
-            ctrl.configManager.activate();
-        } catch (e) {
-            throw new Error('Cannot load configuration!');
-        }
-
-        ctrl.statusBarHandler = new StatusBarHandler();
-        ctrl.commentHandler = createCommentHandler();
-
-        ctrl.configManager.onConfigChanged(() => {
-            ctrl.loadClientAndPullRequest(true);
+                await this.loadCurrentBranchAndDownloadPullRequest();
+            }
         });
 
-        await ctrl.loadClientAndPullRequest();
-
-        const branchDetector = branchChangeDetectorFactory(ctrl.git);
-        branchDetector.activateDetection();
-        branchDetector.branchChanged(async branch => {
+        this.branchDetector.branchChanged(async branch => {
             if (branch) {
-                await ctrl.downloadPullRequest(branch);
+                await this.downloadPullRequest(branch);
+            } else {
+                this.statusBarHandler.clear();
             }
         });
 
         context.subscriptions.push(
-            ctrl.commentHandler,
-            ctrl.configManager,
-            branchDetector,
-            ctrl.registerCommand(Commands.REFRESH_CMD, () =>
-                ctrl.loadClientAndPullRequest(),
+            this.commentHandler,
+            this.configManager,
+            this.branchDetector,
+        );
+
+        this.setupCommands(context);
+
+        context.subscriptions.push(this.configManager.activate());
+
+        await this.client.activate();
+        this.branchDetector.activateDetection();
+
+        await this.loadCurrentBranchAndDownloadPullRequest();
+    }
+
+    private setupCommands(context: vsc.ExtensionContext) {
+        context.subscriptions.push(
+            this.registerCommand(Commands.REFRESH_CMD, () =>
+                this.loadCurrentBranchAndDownloadPullRequest(),
             ),
-            ctrl.registerCommand(
+            this.registerCommand(
                 Commands.OPEN_FILE_CMD,
                 (
                     filePath: string,
                     start: gi.CommentPosition,
                     end: gi.CommentPosition,
-                ) => ctrl.openFile(filePath, start, end),
+                ) => this.openFile(filePath, start, end),
             ),
-            ctrl.registerCommand(Commands.OPEN_PR_CMD, () =>
-                ctrl.openPullRequest(),
+            this.registerCommand(Commands.OPEN_PR_CMD, () =>
+                this.openPullRequest(),
             ),
-            ctrl.registerCommand(
+            this.registerCommand(
                 Commands.CREATE_THREAD_CMD,
                 (reply: vsc.CommentReply) =>
-                    ctrl.createThreadWithComment(reply),
+                    this.createThreadWithComment(reply),
             ),
-            ctrl.registerCommand(
+            this.registerCommand(
                 Commands.REPLY_CMD,
-                (reply: vsc.CommentReply) => ctrl.replyToThread(reply),
+                (reply: vsc.CommentReply) => this.replyToThread(reply),
             ),
-            ctrl.registerCommand(
+            this.registerCommand(
                 Commands.REPLY_AND_RESOLVE_CMD,
-                (reply: vsc.CommentReply) => ctrl.replyAndResolveThread(reply),
+                (reply: vsc.CommentReply) => this.replyAndResolveThread(reply),
             ),
-            ctrl.registerCommand(
+            this.registerCommand(
                 Commands.REPLY_AND_REOPEN_CMD,
-                (reply: vsc.CommentReply) => ctrl.replyAndReopenThread(reply),
+                (reply: vsc.CommentReply) => this.replyAndReopenThread(reply),
             ),
             ...Commands.SET_STATUS.map(([command, status]) =>
-                ctrl.registerCommand(command, (thread: vsc.CommentThread) =>
-                    ctrl.updateStatus(thread, status),
+                this.registerCommand(command, (thread: vsc.CommentThread) =>
+                    this.updateStatus(thread, status),
                 ),
             ),
-            vsc.workspace.onDidChangeConfiguration(e => {
-                ctrl.configManager.emitChangedConfig(e);
-            }),
         );
-
-        return ctrl;
     }
 
     deactivate() {}
@@ -203,15 +194,15 @@ export class ExtensionController {
         this.commentHandler.clearComments();
         this.commentHandler.updateCommentingProviderRange(!!this.pullRequest);
 
-        this.statusBarHandler.displayPR(this.pullRequest);
+        this.statusBarHandler.displayPullRequest(this.pullRequest);
 
         if (this.pullRequest) {
-            log(`Downloaded PR ${this.pullRequest.pullRequestId!}`);
             const prId = this.pullRequest.pullRequestId ?? null;
             if (!prId) {
-                log('PR has no id');
+                log('Pull request has no id');
                 return;
             }
+            log(`Downloaded pull request !${this.pullRequest.pullRequestId!}`);
 
             const threads = await this.client.loadThreads(prId);
 
@@ -231,27 +222,11 @@ export class ExtensionController {
                 }
             }
         } else {
-            log('No PR found');
+            log('No pull request found for current branch');
         }
     }
 
-    private async loadClientAndPullRequest(
-        forceReloadClient: boolean = false,
-    ): Promise<void> {
-        if (!this.client || forceReloadClient) {
-            try {
-                this.client = await getClient(this.configManager);
-                await this.client.activate();
-            } catch (error) {
-                this.commentHandler.clearComments();
-                vsc.window.showErrorMessage(
-                    'Error while initializing the extension',
-                );
-                logException(error as Error);
-                throw error;
-            }
-        }
-
+    private async loadCurrentBranchAndDownloadPullRequest(): Promise<void> {
         try {
             const currentBranch = await this.git.getCurrentBranch();
             if (!currentBranch) {

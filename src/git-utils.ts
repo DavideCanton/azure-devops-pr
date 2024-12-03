@@ -5,25 +5,17 @@ import * as vs from 'vscode';
 import { log } from './logs';
 import { DisposableLike } from './utils';
 
-export interface GitInterface {
+export interface IGitInterface {
     readonly repositoryRoot: string;
 
     getCurrentBranch(): Promise<string | null>;
 }
 
-export function createGitInterface(folder: string): Promise<GitInterface> {
-    return GitInterfaceImpl.load(folder);
-}
-
-export type GitInterfaceFactory = typeof createGitInterface;
-
 /**
  * Utility class for retrieving information about the repository.
  */
-class GitInterfaceImpl implements GitInterface {
+export class GitInterface implements IGitInterface {
     private _repositoryRoot: string;
-
-    private constructor() {}
 
     /**
      * The root directory of the Git repository.
@@ -48,8 +40,8 @@ class GitInterfaceImpl implements GitInterface {
      * @returns A promise that resolves to the `GitInterfaceImpl` instance.
      * @throws {Error} If the specified folder is not a Git repository.
      */
-    static async load(folder: string): Promise<GitInterfaceImpl> {
-        const handler = new GitInterfaceImpl();
+    static async load(folder: string): Promise<GitInterface> {
+        const handler = new GitInterface();
 
         try {
             await lstat(folder);
@@ -129,7 +121,7 @@ class GitInterfaceImpl implements GitInterface {
 /**
  * An interface for detecting changes in the current branch.
  */
-export interface BranchChangeDetector extends DisposableLike {
+export interface IBranchChangeDetector extends DisposableLike {
     /**
      * An event that is fired when the current branch changes. The event is fired with the new branch (or `null`
      * if no branch is active).
@@ -144,15 +136,10 @@ export interface BranchChangeDetector extends DisposableLike {
 }
 
 /**
- * A function that creates a {@link BranchChangeDetector}.
- */
-export type BranchChangeDetectorFactory = typeof createBranchChangeDetector;
-
-/**
  * A class that detects changes in the current branch using the file system watcher.
  */
-class FsWatcherBranchChangeDetectorImpl
-    implements BranchChangeDetector, DisposableLike
+export class FsWatcherBranchChangeDetector
+    implements IBranchChangeDetector, DisposableLike
 {
     /**
      * {@inheritdoc BranchChangeDetector.branchChanged}
@@ -164,11 +151,11 @@ class FsWatcherBranchChangeDetectorImpl
     private branchChangedEmitter: vs.EventEmitter<string | null>;
 
     /**
-     * Creates a new instance of {@link FsWatcherBranchChangeDetectorImpl}.
+     * Creates a new instance of {@link FsWatcherBranchChangeDetector}.
      *
      * @param git The Git interface to use for getting the current branch.
      */
-    constructor(private git: GitInterface) {
+    constructor(private git: IGitInterface) {
         this.branchChangedEmitter = new vs.EventEmitter();
         this.branchChanged = this.branchChangedEmitter.event;
     }
@@ -202,17 +189,4 @@ class FsWatcherBranchChangeDetectorImpl
             this.branchChangedEmitter.fire(currentBranch);
         }, 1000);
     }
-}
-
-/**
- * Creates a new {@link BranchChangeDetector} that uses the file system watcher to detect changes in the
- * current branch.
- *
- * @param git The Git interface to use for getting the current branch.
- * @returns A new {@link BranchChangeDetector}.
- */
-export function createBranchChangeDetector(
-    git: GitInterface,
-): BranchChangeDetector {
-    return new FsWatcherBranchChangeDetectorImpl(git);
 }
