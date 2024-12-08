@@ -1,5 +1,4 @@
 import * as gi from 'azure-devops-node-api/interfaces/GitInterfaces';
-import { Configuration, ConfigurationManager } from '../config';
 import { Identity } from 'azure-devops-node-api/interfaces/IdentitiesInterfaces';
 
 /**
