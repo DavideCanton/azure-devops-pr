@@ -5,9 +5,9 @@ import { ICommentHandler } from './comment-handler';
 import { ConfigurationManager } from './config';
 import { Commands } from './constants';
 import { IBranchChangeDetector, IGitInterface } from './git-utils';
-import { log, logException } from './logs';
 import { StatusBarHandler } from './status-bar';
 import { toUri, toVsPosition } from './utils';
+import { logger } from './logs';
 
 export class ExtensionController {
     private pullRequest: gi.GitPullRequest | null = null;
@@ -31,7 +31,7 @@ export class ExtensionController {
                     vsc.window.showErrorMessage(
                         'Error while initializing the Azure DevOps client',
                     );
-                    logException(error as Error);
+                    logger().logException(error as Error);
                     throw error;
                 }
 
@@ -112,7 +112,7 @@ export class ExtensionController {
     ): vsc.Disposable {
         return vsc.commands.registerCommand(commandId, (...args) =>
             fn(...args).catch(error => {
-                logException(error as Error);
+                logger().logException(error as Error);
                 vsc.window.showErrorMessage('Error while executing command');
                 throw error;
             }),
@@ -199,17 +199,19 @@ export class ExtensionController {
         if (this.pullRequest) {
             const prId = this.pullRequest.pullRequestId ?? null;
             if (!prId) {
-                log('Pull request has no id');
+                logger().log('Pull request has no id');
                 return;
             }
-            log(`Downloaded pull request !${this.pullRequest.pullRequestId!}`);
+            logger().log(
+                `Downloaded pull request !${this.pullRequest.pullRequestId!}`,
+            );
 
             const threads = await this.client.loadThreads(prId);
 
-            log(`Downloaded ${threads.length} threads.`);
+            logger().log(`Downloaded ${threads.length} threads.`);
 
             for (const thread of threads) {
-                log(`Mapping thread ${thread.id}`);
+                logger().log(`Mapping thread ${thread.id}`);
                 try {
                     await this.commentHandler.mapThread(
                         thread,
@@ -217,12 +219,12 @@ export class ExtensionController {
                         this.client.user,
                     );
                 } catch (error) {
-                    log(`Error while mapping thread ${thread.id}`);
-                    logException(error as Error);
+                    logger().log(`Error while mapping thread ${thread.id}`);
+                    logger().logException(error as Error);
                 }
             }
         } else {
-            log('No pull request found for current branch');
+            logger().log('No pull request found for current branch');
         }
     }
 
@@ -233,12 +235,12 @@ export class ExtensionController {
                 vsc.window.showErrorMessage('Cannot detect current branch!');
                 return;
             }
-            log(`Detected branch ${currentBranch}`);
+            logger().log(`Detected branch ${currentBranch}`);
             await this.downloadPullRequest(currentBranch);
         } catch (error) {
             this.commentHandler.clearComments();
             vsc.window.showErrorMessage('Error while downloading comments');
-            logException(error as Error);
+            logger().logException(error as Error);
         }
     }
 
@@ -261,7 +263,7 @@ export class ExtensionController {
             vsc.window.showErrorMessage(
                 `Error while opening file ${filePath} in editor`,
             );
-            logException(error as Error);
+            logger().logException(error as Error);
         }
     }
 

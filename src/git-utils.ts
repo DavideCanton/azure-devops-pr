@@ -2,8 +2,8 @@ import debounce from 'lodash-es/debounce';
 import { spawn } from 'node:child_process';
 import { lstat } from 'node:fs/promises';
 import * as vs from 'vscode';
-import { log } from './logs';
 import { DisposableLike } from './utils';
+import { logger } from './logs';
 
 export interface IGitInterface {
     readonly repositoryRoot: string;
@@ -91,7 +91,7 @@ export class GitInterface implements IGitInterface {
         args: string[],
         cwd: string = this.repositoryRoot,
     ): Promise<string> {
-        log(`Running git command: ${command} ${args.join(' ')}`);
+        logger().log(`Running git command: ${command} ${args.join(' ')}`);
 
         const res = spawn('git', [command, ...args], { cwd });
 

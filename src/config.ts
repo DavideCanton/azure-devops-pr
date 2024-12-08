@@ -1,7 +1,7 @@
 import * as vsc from 'vscode';
 import { EXT_ID } from './constants';
-import { log, logException } from './logs';
 import { buildUri, DisposableLike } from './utils';
+import { logger } from './logs';
 
 /**
  * Settings object.
@@ -149,12 +149,12 @@ export class ConfigurationManager implements DisposableLike {
      */
     emitChangedConfig(event: vsc.ConfigurationChangeEvent): void {
         if (event.affectsConfiguration(EXT_ID)) {
-            log('Configuration changed, reloading...');
+            logger().log('Configuration changed, reloading...');
             try {
                 this._loadConfiguration();
                 this._configChanged.fire(true);
             } catch (e) {
-                logException(e as Error);
+                logger().logException(e as Error);
                 this._configChanged.fire(false);
             }
         }
@@ -173,6 +173,6 @@ export class ConfigurationManager implements DisposableLike {
         ) as vsc.WorkspaceConfiguration & Settings;
 
         this._configuration = Configuration.fromSettings(settings);
-        log('Configuration loaded');
+        logger().log('Configuration loaded');
     }
 }
