@@ -1,10 +1,10 @@
 import * as gi from 'azure-devops-node-api/interfaces/GitInterfaces';
 import { Identity } from 'azure-devops-node-api/interfaces/IdentitiesInterfaces';
-import { AzureClient } from '..';
+import { IAzureClient } from '..';
 import { PR } from './pr';
 import { THREADS } from './threads';
 
-export class MockClient implements AzureClient {
+export class MockClient implements IAzureClient {
     user: Identity;
 
     async activate(): Promise<void> {
