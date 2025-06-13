@@ -6,6 +6,7 @@ export interface IStatusBarHandler {
     displayLoading(): void;
     clear(): void;
     displayPullRequest(pullRequest: GitPullRequest | null): void;
+    displayError(message: string): void;
 }
 
 export class StatusBarHandler implements IStatusBarHandler {
@@ -15,6 +16,13 @@ export class StatusBarHandler implements IStatusBarHandler {
         this.statusBarItem = vsc.window.createStatusBarItem(
             vsc.StatusBarAlignment.Left,
         );
+    }
+
+    displayError(message: string): void {
+        this.statusBarItem.text = `$(error) Failed to load PR`;
+        this.statusBarItem.tooltip = `Error: ${message}`;
+        this.statusBarItem.command = undefined;
+        this.statusBarItem.show();
     }
 
     displayLoading(): void {
@@ -35,6 +43,7 @@ export class StatusBarHandler implements IStatusBarHandler {
                 : 'git-pull-request';
             this.statusBarItem.text = `$(${icon}) ${prId}`;
             this.statusBarItem.command = Commands.OPEN_PR_CMD;
+            this.statusBarItem.tooltip = `Open PR in remote`;
             this.statusBarItem.show();
         } else {
             this.clear();

@@ -189,12 +189,19 @@ export class ExtensionController {
     private async downloadPullRequest(currentBranch: string): Promise<void> {
         this.statusBarHandler.displayLoading();
 
-        this.pullRequest = await this.client.loadPullRequest(currentBranch);
+        try {
+            this.pullRequest = await this.client.loadPullRequest(currentBranch);
+            this.statusBarHandler.displayPullRequest(this.pullRequest);
+        } catch (error) {
+            logger().logException(error as Error);
+            this.statusBarHandler.displayError(
+                `Failed to load pull request for branch ${currentBranch}`,
+            );
+            this.pullRequest = null;
+        }
 
         this.commentHandler.clearComments();
         this.commentHandler.updateCommentingProviderRange(!!this.pullRequest);
-
-        this.statusBarHandler.displayPullRequest(this.pullRequest);
 
         if (this.pullRequest) {
             const prId = this.pullRequest.pullRequestId ?? null;
@@ -240,6 +247,9 @@ export class ExtensionController {
         } catch (error) {
             this.commentHandler.clearComments();
             vsc.window.showErrorMessage('Error while downloading comments');
+            this.statusBarHandler.displayError(
+                `Error while downloading comments: ${error}`,
+            );
             logger().logException(error as Error);
         }
     }
